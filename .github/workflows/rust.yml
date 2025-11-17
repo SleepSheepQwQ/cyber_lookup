@@ -3,6 +3,7 @@ name: Rust Cross-Compilation for Termux (AArch64)
 
 on:
   push:
+    # 监听主分支 'master'
     branches: [ "master" ]
   workflow_dispatch:
 
@@ -20,23 +21,30 @@ jobs:
         targets: aarch64-linux-android
         
     - name: Setup Android NDK
+      # 修正：使用正确的 Action 路径
       uses: android-actions/setup-android@v3
       with:
         ndk: '25.1.8937393' 
         
-    - name: Set NDK Environment Variables (Crucial for Rusqlite Linking)
+    - name: Set NDK Environment Variables (Final Fix for CC/CXX)
       run: |
-        # 1. 设置 NDK 工具链 bin 路径
+        # 1. 定义 NDK 工具链路径和编译器名称
         NDK_BIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
         CLANG_PATH="${NDK_BIN}/aarch64-linux-android29"
+        CLANG_BIN="${CLANG_PATH}-clang"
+        CLANGXX_BIN="${CLANG_PATH}-clang++"
+
+        # 2. 【核心修复：同时设置全局和特定目标 CC/CXX】
+        # A. 全局 CC/CXX (兼容大部分 Crate)
+        echo "CC=${CLANG_BIN}" >> $GITHUB_ENV
+        echo "CXX=${CLANGXX_BIN}" >> $GITHUB_ENV
         
-        # 2. 【修复：强制设置 C 编译器和 C++ 编译器路径】
-        # 解决 libsqlite3-sys 找不到 aarch64-linux-android-clang 的错误
-        echo "CC=${CLANG_PATH}-clang" >> $GITHUB_ENV
-        echo "CXX=${CLANG_PATH}-clang++" >> $GITHUB_ENV
+        # B. 目标特定 CC/CXX (解决 libsqlite3-sys 找不到编译器的错误)
+        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_CC=${CLANG_BIN}" >> $GITHUB_ENV
+        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_CXX=${CLANGXX_BIN}" >> $GITHUB_ENV
         
-        # 3. 设置 Rust 链接器路径
-        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${CLANG_PATH}-clang" >> $GITHUB_ENV
+        # C. 设置 Rust 链接器路径
+        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${CLANG_BIN}" >> $GITHUB_ENV
 
     # --- 编译步骤 ---
     - name: Build Rust binary for Termux (Release)
