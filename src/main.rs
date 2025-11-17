@@ -8,14 +8,51 @@ use axum::{
     Router,
 };
 use serde::{Serialize};
-use rusqlite::{Connection, Result as SqlResult};
+use rusqlite::{Connection, Result as SqlResult, Error as SqlError};
 use std::sync::Arc;
 use clap::{Parser, Subcommand};
 use colored::{Colorize};
 use std::net::SocketAddr;
 use std::io::{self, Write};
+use tokio::task;
 
-const DATABASE_FILE: &str = "uid_phone_map.db";
+// 默认数据库文件路径
+const DEFAULT_DATABASE_FILE: &str = "uid_phone_map.db";
+
+// --- 自定义错误类型 ---
+
+// 定义一个统一的应用程序错误类型，方便错误处理
+#[derive(Debug)]
+enum AppError {
+    DbError(SqlError),
+    BlockingTaskError,
+}
+
+// 实现 IntoResponse，使 AppError 可以作为 Axum 路由的返回类型
+impl IntoResponse for AppError {
+    fn into_response(self) -> axum::response::Response {
+        eprintln!("Application Error: {:?}", self);
+        let (status, body) = match self {
+            AppError::DbError(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Database error".to_string(),
+            ),
+            AppError::BlockingTaskError => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Internal server error".to_string(),
+            ),
+        };
+
+        (status, body).into_response()
+    }
+}
+
+// 转换 Rusqlite::Error 到 AppError
+impl From<SqlError> for AppError {
+    fn from(err: SqlError) -> Self {
+        AppError::DbError(err)
+    }
+}
 
 // --- 数据库状态管理 ---
 
@@ -85,88 +122,75 @@ fn lookup_data(conn: &Connection, id: &str) -> SqlResult<LookupResponse> {
 async fn api_lookup(
     Path(id): Path<String>,
     State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
-    let conn = match state.get_db_connection() {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("DB Connection Error: {}", e);
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(LookupResponse {
-                    status: "DB_ERROR".to_string(),
-                    uid: None,
-                    phone_number: None,
-                }),
-            )
-        }
-    };
+) -> Result<impl IntoResponse, AppError> {
+    
+    let id_clone = id.clone(); // 克隆 id 供闭包使用
 
-    match lookup_data(&conn, &id) {
-        Ok(response) => {
-            let status = match response.status.as_str() {
-                "not_found" => StatusCode::NOT_FOUND,
-                _ => StatusCode::OK,
-            };
-            (status, Json(response))
-        }
-        Err(e) => {
-            eprintln!("Lookup Error: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(LookupResponse {
-                    status: "QUERY_ERROR".to_string(),
-                    uid: None,
-                    phone_number: None,
-                }),
-            )
-        }
-    }
+    let response = task::spawn_blocking(move || {
+        let conn = state.get_db_connection()?;
+        lookup_data(&conn, &id_clone)
+    })
+    .await
+    .map_err(|_| AppError::BlockingTaskError)? 
+    .map_err(AppError::DbError)?;              
+
+    let status = match response.status.as_str() {
+        "not_found" => StatusCode::NOT_FOUND,
+        _ => StatusCode::OK,
+    };
+    
+    Ok((status, Json(response)))
 }
 
 async fn api_status(
     Path(id): Path<String>,
     State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
-    let conn = match state.get_db_connection() {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("DB Connection Error: {}", e);
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(StatusResponse {
-                    status: "DB_ERROR".to_string(),
-                    id: id,
-                    exists: false,
-                }),
-            );
-        }
-    };
+) -> Result<impl IntoResponse, AppError> {
 
-    let result = conn.query_row(
-        "SELECT COUNT(*) FROM user_mapping WHERE uid = ?1 OR phone_number = ?1",
-        [id.clone()],
-        |row| row.get::<_, i64>(0),
-    );
+    let id_clone = id.clone();
 
-    let exists = match result {
-        Ok(count) => count > 0,
-        Err(_) => false,
-    };
+    let response = task::spawn_blocking(move || {
+        let conn = state.get_db_connection()?;
+        
+        let result = conn.query_row(
+            "SELECT COUNT(*) FROM user_mapping WHERE uid = ?1 OR phone_number = ?1",
+            [id_clone.clone()],
+            |row| row.get::<_, i64>(0),
+        );
+        
+        let exists = match result {
+            Ok(count) => count > 0,
+            Err(SqlError::QueryReturnedNoRows) => false,
+            Err(e) => return Err(e), 
+        };
+        
+        // 返回成功的数据和 ID
+        Ok((exists, id_clone))
+    })
+    .await
+    .map_err(|_| AppError::BlockingTaskError)?
+    .map_err(AppError::DbError)?;
 
-    let response = StatusResponse {
+    let (exists, id) = response;
+
+    let status_response = StatusResponse {
         status: if exists { "found" } else { "not_found" }.to_string(),
         id: id,
         exists: exists,
     };
     
-    (StatusCode::OK, Json(response))
+    Ok((StatusCode::OK, Json(status_response)))
 }
 
-// --- CLI 命令行接口 ---
+// --- CLI 命令行接口 (修改 Commands) ---
 
 #[derive(Parser)]
 #[command(author, version, about = "Cyber Lookup Service CLI & API Server")]
 struct Cli {
+    // 默认全局参数，所有子命令共享
+    #[arg(short, long, default_value = DEFAULT_DATABASE_FILE)]
+    db_path: String,
+    
     #[command(subcommand)]
     command: Commands,
 }
@@ -184,8 +208,11 @@ enum Commands {
 
 // 终端交互函数
 fn run_cli(state: Arc<AppState>) {
+// ... (run_cli, handle_cli_lookup, handle_cli_status 保持不变)
+
     println!("{}", "--- CYBER LOOKUP V0.1 ---".green().bold());
     println!("{}", "Enter 'lookup <ID>' or 'status <ID>' or 'exit'".cyan());
+    println!("{}", format!("DB Path: {}", state.db_path).yellow());
 
     loop {
         print!("{}", "[CYBER-LOOKUP]$ ".yellow());
@@ -265,29 +292,37 @@ fn handle_cli_status(state: &Arc<AppState>, id: &str) {
     }
 }
 
-// --- 主函数 ---
+
+// --- 主函数 (修改状态初始化) ---
 
 #[tokio::main]
-async fn main() {
-    let state = Arc::new(AppState::new(DATABASE_FILE.to_string()));
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
+    
+    // 关键修改：从 CLI 参数中获取 DB 路径
+    let db_path = cli.db_path;
+    let state = Arc::new(AppState::new(db_path.clone()));
 
     match cli.command {
         Commands::Serve { bind } => {
             println!("{}", format!("Starting API server on http://{}", bind).green().bold());
+            println!("{}", format!("Using Database: {}", db_path).cyan());
             
             let app = Router::new()
                 .route("/lookup/:id", get(api_lookup))
                 .route("/status/:id", get(api_status))
                 .with_state(state);
 
-            let addr: SocketAddr = bind.parse().expect("Invalid bind address");
+            let addr: SocketAddr = bind.parse()?; 
             
-            let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-            axum::serve(listener, app).await.unwrap();
+            let listener = tokio::net::TcpListener::bind(addr).await?; 
+            axum::serve(listener, app).await?; 
         }
         Commands::Termux => {
+            // 在 Termux 模式下，run_cli 内部会打印路径
             run_cli(state);
         }
     }
+    
+    Ok(())
 }

@@ -1,0 +1,411 @@
+{
+    "name": "cyber_lookup",
+    "type": "directory",
+    "children": [
+        {
+            "name": "src",
+            "type": "directory",
+            "children": [
+                {
+                    "name": "main.rs",
+                    "type": "file",
+                    "size_bytes": 9393,
+                    "preview": "[Non-text/Binary file, size: 9393 bytes]"
+                }
+            ]
+        },
+        {
+            "name": ".github",
+            "type": "directory",
+            "children": [
+                {
+                    "name": "workflows",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "rust.yml",
+                            "type": "file",
+                            "size_bytes": 1271,
+                            "preview": "# .github/workflows/rust.yml\nname: Rust Cross-Compilation for Termux (AArch64)\n\non:\n  push:\n    bran..."
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Cargo.toml",
+            "type": "file",
+            "size_bytes": 706,
+            "preview": "[Non-text/Binary file, size: 706 bytes]"
+        },
+        {
+            "name": "data_importer.py",
+            "type": "file",
+            "size_bytes": 3075,
+            "preview": "# data_importer.py\n# 运行此脚本以解析 TXT 文件并将数据导入 SQLite 数据库 (uid_phone_map.db)\n# 注意：此脚本需要在您的 Termux 环境中运行。..."
+        },
+        {
+            "name": ".git",
+            "type": "directory",
+            "children": [
+                {
+                    "name": "description",
+                    "type": "file",
+                    "size_bytes": 73,
+                    "preview": "[Non-text/Binary file, size: 73 bytes]"
+                },
+                {
+                    "name": "hooks",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "pre-merge-commit.sample",
+                            "type": "file",
+                            "size_bytes": 447,
+                            "preview": "[Non-text/Binary file, size: 447 bytes]"
+                        },
+                        {
+                            "name": "commit-msg.sample",
+                            "type": "file",
+                            "size_bytes": 927,
+                            "preview": "[Non-text/Binary file, size: 927 bytes]"
+                        },
+                        {
+                            "name": "pre-push.sample",
+                            "type": "file",
+                            "size_bytes": 1405,
+                            "preview": "[Non-text/Binary file, size: 1405 bytes]"
+                        },
+                        {
+                            "name": "pre-rebase.sample",
+                            "type": "file",
+                            "size_bytes": 4956,
+                            "preview": "[Non-text/Binary file, size: 4956 bytes]"
+                        },
+                        {
+                            "name": "prepare-commit-msg.sample",
+                            "type": "file",
+                            "size_bytes": 1604,
+                            "preview": "[Non-text/Binary file, size: 1604 bytes]"
+                        },
+                        {
+                            "name": "sendemail-validate.sample",
+                            "type": "file",
+                            "size_bytes": 2339,
+                            "preview": "[Non-text/Binary file, size: 2339 bytes]"
+                        },
+                        {
+                            "name": "update.sample",
+                            "type": "file",
+                            "size_bytes": 3681,
+                            "preview": "[Non-text/Binary file, size: 3681 bytes]"
+                        },
+                        {
+                            "name": "fsmonitor-watchman.sample",
+                            "type": "file",
+                            "size_bytes": 4753,
+                            "preview": "[Non-text/Binary file, size: 4753 bytes]"
+                        },
+                        {
+                            "name": "post-update.sample",
+                            "type": "file",
+                            "size_bytes": 220,
+                            "preview": "[Non-text/Binary file, size: 220 bytes]"
+                        },
+                        {
+                            "name": "pre-applypatch.sample",
+                            "type": "file",
+                            "size_bytes": 455,
+                            "preview": "[Non-text/Binary file, size: 455 bytes]"
+                        },
+                        {
+                            "name": "pre-commit.sample",
+                            "type": "file",
+                            "size_bytes": 1680,
+                            "preview": "[Non-text/Binary file, size: 1680 bytes]"
+                        },
+                        {
+                            "name": "push-to-checkout.sample",
+                            "type": "file",
+                            "size_bytes": 2814,
+                            "preview": "[Non-text/Binary file, size: 2814 bytes]"
+                        },
+                        {
+                            "name": "pre-receive.sample",
+                            "type": "file",
+                            "size_bytes": 575,
+                            "preview": "[Non-text/Binary file, size: 575 bytes]"
+                        },
+                        {
+                            "name": "applypatch-msg.sample",
+                            "type": "file",
+                            "size_bytes": 509,
+                            "preview": "[Non-text/Binary file, size: 509 bytes]"
+                        }
+                    ]
+                },
+                {
+                    "name": "info",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "exclude",
+                            "type": "file",
+                            "size_bytes": 240,
+                            "preview": "[Non-text/Binary file, size: 240 bytes]"
+                        }
+                    ]
+                },
+                {
+                    "name": "refs",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "heads",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "master",
+                                    "type": "file",
+                                    "size_bytes": 41,
+                                    "preview": "[Non-text/Binary file, size: 41 bytes]"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "tags",
+                            "type": "directory",
+                            "children": []
+                        },
+                        {
+                            "name": "remotes",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "origin",
+                                    "type": "directory",
+                                    "children": [
+                                        {
+                                            "name": "master",
+                                            "type": "file",
+                                            "size_bytes": 41,
+                                            "preview": "[Non-text/Binary file, size: 41 bytes]"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "config",
+                    "type": "file",
+                    "size_bytes": 274,
+                    "preview": "[Non-text/Binary file, size: 274 bytes]"
+                },
+                {
+                    "name": "objects",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "pack",
+                            "type": "directory",
+                            "children": []
+                        },
+                        {
+                            "name": "info",
+                            "type": "directory",
+                            "children": []
+                        },
+                        {
+                            "name": "ee",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "269942223d7143e347ca200aab7bc2e9f15104",
+                                    "type": "file",
+                                    "size_bytes": 741,
+                                    "preview": "[Non-text/Binary file, size: 741 bytes]"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "d9",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "a4b357c14c8f7c8e118802da9c5c8245c81689",
+                                    "type": "file",
+                                    "size_bytes": 498,
+                                    "preview": "[Non-text/Binary file, size: 498 bytes]"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "9e",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "a1cf7ba053985ed05d1f95f35a015f1598fab3",
+                                    "type": "file",
+                                    "size_bytes": 1448,
+                                    "preview": "[Non-text/Binary file, size: 1448 bytes]"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "5c",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "ded8ef776ce4e7366069c1ae7b91d8941772db",
+                                    "type": "file",
+                                    "size_bytes": 2758,
+                                    "preview": "[Non-text/Binary file, size: 2758 bytes]"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "ba",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "1a65011830e7492531138e77122d3e2c47fb8b",
+                                    "type": "file",
+                                    "size_bytes": 53,
+                                    "preview": "[Non-text/Binary file, size: 53 bytes]"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "9c",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "14e8a787a0e20276d4302c05b4b2b4561e72de",
+                                    "type": "file",
+                                    "size_bytes": 51,
+                                    "preview": "[Non-text/Binary file, size: 51 bytes]"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "b8",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "2621bfe86c3cabad73f03b7abc8afd5e4d1907",
+                                    "type": "file",
+                                    "size_bytes": 52,
+                                    "preview": "[Non-text/Binary file, size: 52 bytes]"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "52",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "20cbde6847f7e5eef1f45c198ab1c5256ebfaf",
+                                    "type": "file",
+                                    "size_bytes": 157,
+                                    "preview": "[Non-text/Binary file, size: 157 bytes]"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "c8",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "d19b4cb9836117c8edeb38e0efd1ad15054d7b",
+                                    "type": "file",
+                                    "size_bytes": 168,
+                                    "preview": "[Non-text/Binary file, size: 168 bytes]"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "name": "HEAD",
+                    "type": "file",
+                    "size_bytes": 23,
+                    "preview": "[Non-text/Binary file, size: 23 bytes]"
+                },
+                {
+                    "name": "COMMIT_EDITMSG",
+                    "type": "file",
+                    "size_bytes": 51,
+                    "preview": "[Non-text/Binary file, size: 51 bytes]"
+                },
+                {
+                    "name": "index",
+                    "type": "file",
+                    "size_bytes": 495,
+                    "preview": "[Non-text/Binary file, size: 495 bytes]"
+                },
+                {
+                    "name": "logs",
+                    "type": "directory",
+                    "children": [
+                        {
+                            "name": "HEAD",
+                            "type": "file",
+                            "size_bytes": 209,
+                            "preview": "[Non-text/Binary file, size: 209 bytes]"
+                        },
+                        {
+                            "name": "refs",
+                            "type": "directory",
+                            "children": [
+                                {
+                                    "name": "heads",
+                                    "type": "directory",
+                                    "children": [
+                                        {
+                                            "name": "master",
+                                            "type": "file",
+                                            "size_bytes": 209,
+                                            "preview": "[Non-text/Binary file, size: 209 bytes]"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "name": "remotes",
+                                    "type": "directory",
+                                    "children": [
+                                        {
+                                            "name": "origin",
+                                            "type": "directory",
+                                            "children": [
+                                                {
+                                                    "name": "master",
+                                                    "type": "file",
+                                                    "size_bytes": 155,
+                                                    "preview": "[Non-text/Binary file, size: 155 bytes]"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "zj.py",
+            "type": "file",
+            "size_bytes": 7148,
+            "preview": "import os\nimport json\nimport sys\nimport argparse\nfrom os import DirEntry \nfrom typing import Dict, A..."
+        },
+        {
+            "name": "cyber_lookup_structure.json",
+            "type": "file",
+            "size_bytes": 1172,
+            "preview": "{\n    \"name\": \"cyber_lookup\",\n    \"type\": \"directory\",\n    \"children\": [\n        {\n            \"name..."
+        }
+    ]
+}
