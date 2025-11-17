@@ -24,13 +24,13 @@ jobs:
       run: cargo install cross
         
     # ----------------------------------------------------
-    # 2. 核心构建步骤：使用 cross install 确保二进制文件导出到主机 $HOME/.cargo/bin
+    # 2. 核心构建步骤：修复命令行参数
     # ----------------------------------------------------
     - name: Build and Install Binary using Cross
       id: build_step
       run: |
-        # 使用 install 命令，如果构建成功，二进制文件会被复制到主机环境的 $HOME/.cargo/bin 目录
-        cross install --release --target aarch64-linux-android
+        # ✅ 最终修复：移除 '--release' 参数。cross install 默认构建 release 版本
+        cross install --target aarch64-linux-android
 
     # ----------------------------------------------------
     # 3. 从标准安装路径复制文件到 Artifact 临时目录

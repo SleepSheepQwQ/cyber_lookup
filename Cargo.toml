@@ -13,7 +13,7 @@ axum = "0.7"
 serde = { version = "1.0", features = ["derive"] }
 
 # SQLite 数据库驱动
-rusqlite = { version = "0.30", features = ["bundled"] } # ✅ 最终修复：重新启用 bundled，静态编译 C 库。
+rusqlite = { version = "0.30", features = ["bundled"] } # ✅ 关键：确保启用了 bundled
 
 # CLI 命令行解析
 clap = { version = "4.4", features = ["derive"] }
