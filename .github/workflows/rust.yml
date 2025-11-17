@@ -3,9 +3,8 @@ name: Rust Cross-Compilation for Termux (AArch64)
 
 on:
   push:
-    # 监听你的主分支 'master'
     branches: [ "master" ]
-  workflow_dispatch: # 允许手动在 GitHub Actions 页面触发
+  workflow_dispatch:
 
 jobs:
   build_termux:
@@ -13,36 +12,37 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-    # --- 依赖安装与目标设置 ---
     - name: Install Rust toolchain and target
       uses: dtolnay/rust-toolchain@stable
       with:
         targets: aarch64-linux-android
         
-    # --- 核心修复：修正 setup-android 的 Action 路径 ---
     - name: Setup Android NDK
-      uses: android-actions/setup-android@v3  # <-- 此处是修复点
+      uses: android-actions/setup-android@v3
       with:
-        ndk: '25.1.8937393' # 稳定的 NDK 版本
+        ndk: '25.1.8937393' 
         
     - name: Set NDK Environment Variables (Crucial for Rusqlite Linking)
       run: |
-        # NDK 路径
+        # 1. 设置 NDK 工具链 bin 路径
         NDK_BIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
+        CLANG_PATH="${NDK_BIN}/aarch64-linux-android29"
         
-        # 显式设置链接器，指向 NDK 的 clang 编译器 (使用 API Level 29)
-        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${NDK_BIN}/aarch64-linux-android29-clang" >> $GITHUB_ENV
+        # 2. 【修复：强制设置 C 编译器和 C++ 编译器路径】
+        # 解决 libsqlite3-sys 找不到 aarch64-linux-android-clang 的错误
+        echo "CC=${CLANG_PATH}-clang" >> $GITHUB_ENV
+        echo "CXX=${CLANG_PATH}-clang++" >> $GITHUB_ENV
+        
+        # 3. 设置 Rust 链接器路径
+        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${CLANG_PATH}-clang" >> $GITHUB_ENV
 
     # --- 编译步骤 ---
     - name: Build Rust binary for Termux (Release)
       run: |
-        # 使用 --release 编译优化版本
         cargo build --release --target aarch64-linux-android
         
-    # --- 产物上传 ---
     - name: Package and upload Termux binary
       uses: actions/upload-artifact@v4
       with:
