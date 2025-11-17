@@ -18,22 +18,26 @@ jobs:
       with: {targets: aarch64-linux-android}
         
     # ----------------------------------------------------
-    # ✅ 核心修复：使用 cross install 将二进制文件复制到主机环境的 $HOME/.cargo/bin
+    # ✅ 修复：在执行 cross 命令前，先安装 cross 工具本身
+    # ----------------------------------------------------
+    - name: Install Cross Tool
+      run: cargo install cross
+        
+    # ----------------------------------------------------
+    # 核心构建步骤：使用 cross install 将二进制文件复制到主机环境的 $HOME/.cargo/bin
     # ----------------------------------------------------
     - name: Build and Install Binary using Cross
       id: build_step
       # cross install 会自动将构建好的 release 二进制文件复制到主机环境的 $HOME/.cargo/bin 目录
       run: |
-        # 移除日志捕获，构建失败则直接停止，避免混乱
         cross install --release --target aarch64-linux-android
-      # 注意：如果构建失败，流程会在此停止，不会运行后续步骤。
-      # build_step 的 id 依然存在，用于后续 if 条件判断。
+      # 构建失败则流程在此停止。
 
     # ----------------------------------------------------
-    # ✅ 从标准安装路径复制文件到 Artifact 临时目录
+    # 从标准安装路径复制文件到 Artifact 临时目录
     # ----------------------------------------------------
     - name: Stage Final Binary
-      # 只有当前面的安装步骤成功时才运行 (implied by no 'continue-on-error')
+      # 如果 build_step 成功，则运行此步骤
       if: success()
       run: |
         echo "Copying binary from $HOME/.cargo/bin to staging directory..."
