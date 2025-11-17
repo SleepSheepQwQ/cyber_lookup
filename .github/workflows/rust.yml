@@ -1,0 +1,42 @@
+# .github/workflows/rust.yml
+name: Rust Cross-Compilation for Termux (AArch64)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build_termux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    # --- Termux 交叉编译设置 ---
+    - name: Install Rust toolchain and target
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: aarch64-linux-android
+        
+    - name: Setup Android NDK
+      uses: actions/setup-android@v3
+      with:
+        ndk: '25.1.8937393' # 推荐的稳定版本
+        
+    - name: Set NDK Environment Variables
+      run: |
+        # 设置链接器路径，Termux 通常使用 API Level 29 或更高
+        NDK_BIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
+        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${NDK_BIN}/aarch64-linux-android29-clang" >> $GITHUB_ENV
+
+    # --- 编译步骤 ---
+    - name: Build Rust binary for Termux (Release)
+      run: |
+        cargo build --release --target aarch64-linux-android
+        
+    - name: Package and upload Termux binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: cyber_lookup_termux_aarch64
+        path: target/aarch64-linux-android/release/cyber_lookup 
+        retention-days: 7
