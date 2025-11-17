@@ -24,4 +24,3 @@ colored = "2.0"
 
 # --- Termux 交叉编译优化 ---
 [target.aarch64-linux-android]
-# 此处无需额外内容，依赖已通过 bundled feature 解决
