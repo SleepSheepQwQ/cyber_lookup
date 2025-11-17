@@ -1,4 +1,4 @@
-# Cargo.toml (你应该已经有类似以下的内容)
+[package]
 name = "cyber_lookup"
 version = "0.1.0"
 edition = "2021"
@@ -12,7 +12,7 @@ axum = "0.7"
 # 数据序列化/反序列化
 serde = { version = "1.0", features = ["derive"] }
 
-# SQLite 数据库驱动 (关键：使用 'bundled' feature 静态链接 C 库)
+# SQLite 数据库驱动
 rusqlite = { version = "0.30", features = ["bundled"] } 
 
 # CLI 命令行解析
@@ -21,12 +21,11 @@ clap = { version = "4.4", features = ["derive"] }
 # 终端输出增强
 colored = "2.0" 
 
-
-# --- Termux 交叉编译优化 (以下内容必须确保存在并正确配置) ---
+# --- Termux 交叉编译优化 ---
 [target.aarch64-linux-android]
 # 这告诉 Cargo 针对 android 目标，使用我们通过环境变量配置的 Clang 链接器
 rustflags = [
     "-C", "link-arg=-landroid",
     "-C", "link-arg=-llog",
-    "-C", "link-arg=-lz",  # 确保 zlib (sqlite3 bundled 依赖) 能被链接
+    "-C", "link-arg=-lz",
 ]
