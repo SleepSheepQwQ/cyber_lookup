@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v4  # 恢复到 V4
 
     - name: Install Rust toolchain and target
       uses: dtolnay/rust-toolchain@stable
@@ -20,28 +20,23 @@ jobs:
         targets: aarch64-linux-android
         
     - name: Setup Android NDK
-      # 使用已知的稳定版本 (NDK 25c)，防止 Action 自动升级到 NDK 27.x 导致路径冲突
+      # 恢复到 V3
       uses: android-actions/setup-android@v3
       with:
         ndk: '25.2.9519653' 
         
     - name: Set NDK Environment Variables (ULTIMATE FIX: Target-Specific LLVM AR)
       run: |
-        # 确保 Bash 语法和变量定义正确
+        # 精简 Bash 脚本，解决 YAML 解析中断问题
         NDK_BIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
-        
-        # 定义 Clang 编译器和 LLVM Archiver 的路径
         CLANG_BIN="${NDK_BIN}/aarch64-linux-android29-clang"
         LLVM_AR_BIN="${NDK_BIN}/llvm-ar"
         
-        # 1. 强制使用 Target-Specific 变量 (最高优先级)
         echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_CC=${CLANG_BIN}" >> $GITHUB_ENV
         echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_CXX=${CLANG_BIN}++" >> $GITHUB_ENV
-        # 修复 AR 问题：使用 llvm-ar
         echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_AR=${LLVM_AR_BIN}" >> $GITHUB_ENV
         echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${CLANG_BIN}" >> $GITHUB_ENV
         
-        # 2. 同时设置 CC/CXX 别名，确保兼容性
         echo "CC_AARCH64_LINUX_ANDROID=${CLANG_BIN}" >> $GITHUB_ENV
         echo "CXX_AARCH64_LINUX_ANDROID=${CLANG_BIN}++" >> $GITHUB_ENV
 
