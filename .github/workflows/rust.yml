@@ -3,7 +3,7 @@ name: Rust Cross-Compilation for Termux (AArch64)
 
 on:
   push:
-    # 修正: 监听你的实际主分支 'master'，以触发 CI/CD
+    # 监听你的主分支 'master'
     branches: [ "master" ]
   workflow_dispatch: # 允许手动在 GitHub Actions 页面触发
 
@@ -22,11 +22,11 @@ jobs:
       with:
         targets: aarch64-linux-android
         
+    # --- 核心修复：修正 setup-android 的 Action 路径 ---
     - name: Setup Android NDK
-      uses: actions/setup-android@v3
+      uses: android-actions/setup-android@v3  # <-- 此处是修复点
       with:
-        # 使用稳定的 NDK 版本，兼容性好
-        ndk: '25.1.8937393' 
+        ndk: '25.1.8937393' # 稳定的 NDK 版本
         
     - name: Set NDK Environment Variables (Crucial for Rusqlite Linking)
       run: |
@@ -46,8 +46,6 @@ jobs:
     - name: Package and upload Termux binary
       uses: actions/upload-artifact@v4
       with:
-        # 产物名称，便于下载
         name: cyber_lookup_termux_aarch64
-        # 二进制文件的最终路径
         path: target/aarch64-linux-android/release/cyber_lookup 
         retention-days: 7
