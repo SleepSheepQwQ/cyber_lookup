@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# 异步运行时
-tokio = { version = "1.35", features = ["full"] } 
+# 异步运行时 - 精简到所需的核心功能
+tokio = { version = "1.35", features = ["rt-current-thread", "macros", "net", "sync", "time"] } 
 
 # API 框架
 axum = "0.7"
@@ -13,7 +13,7 @@ axum = "0.7"
 serde = { version = "1.0", features = ["derive"] }
 
 # SQLite 数据库驱动
-rusqlite = { version = "0.30" } # <--- (最佳实践 2) 移除 features = ["bundled"]，依赖 NDK 系统库。
+rusqlite = { version = "0.30" } # <--- 关键修复：移除 features = ["bundled"]，依赖 NDK 系统库。
 
 # CLI 命令行解析
 clap = { version = "4.4", features = ["derive"] }
@@ -21,12 +21,21 @@ clap = { version = "4.4", features = ["derive"] }
 # 终端输出增强
 colored = "2.0" 
 
-# --- 交叉编译稳定性及体积优化 (最佳实践 1) ---
+# --- 交叉编译稳定性及体积优化 (最佳实践) ---
 [profile.release]
-panic = "abort" # 核心修复，解决 -lunwind 链接问题。
-opt-level = "z" # 体积优化
-lto = true      # 链接时间优化
-codegen-units = 1 # LTO 增强
-strip = "symbols" # 移除符号表
+# 核心修复：解决 -lunwind 链接问题。
+panic = "abort" 
 
-# (最佳实践 3) 关键更改：移除了 [target.aarch64-linux-android] 区块，避免与 cross 容器的 NDK 链接器配置冲突。
+# 体积优化
+opt-level = "z"
+
+# 链接时间优化 (LTO)
+lto = true
+
+# LTO 增强
+codegen-units = 1
+
+# 移除符号表
+strip = "symbols"
+
+# 关键移除：已删除 [target.aarch64-linux-android] 区块，避免与 cross 冲突。
