@@ -18,59 +18,34 @@ jobs:
       with: {targets: aarch64-linux-android}
         
     # ----------------------------------------------------
-    # 核心构建步骤：捕获日志并允许流程继续
+    # ✅ 核心修复：使用 cross install 将二进制文件复制到主机环境的 $HOME/.cargo/bin
     # ----------------------------------------------------
-    - name: Build Rust binary for Termux (Release) using Cross
+    - name: Build and Install Binary using Cross
       id: build_step
-      # 捕获日志到 build_log.txt 文件，并允许在失败时继续
+      # cross install 会自动将构建好的 release 二进制文件复制到主机环境的 $HOME/.cargo/bin 目录
       run: |
-        cross build --release --target aarch64-linux-android 2>&1 | tee build_log.txt
-      continue-on-error: true
+        # 移除日志捕获，构建失败则直接停止，避免混乱
+        cross install --release --target aarch64-linux-android
+      # 注意：如果构建失败，流程会在此停止，不会运行后续步骤。
+      # build_step 的 id 依然存在，用于后续 if 条件判断。
 
     # ----------------------------------------------------
-    # 自动日志分析和总结 (只在构建失败时运行)
-    # ----------------------------------------------------
-    - name: Summarize and Highlight Errors (Automated Analysis)
-      # 条件判断：仅当前一步骤 (id: build_step) 失败时运行
-      if: steps.build_step.outcome == 'failure'
-      run: |
-        echo "--- 🚨 交叉编译错误摘要 🚨 ---" >> $GITHUB_STEP_SUMMARY
-        echo "## 重点错误提炼" >> $GITHUB_STEP_SUMMARY
-        
-        # 运行高效的 grep 过滤命令，限制输出行数，并格式化输出到 Summary 页面
-        grep -E 'error:|note:|failed:|cannot find|undefined reference|linker|collect2|aarch64-linux-android' build_log.txt \
-        | head -n 50 \
-        | sed 's/^/- /' \
-        >> $GITHUB_STEP_SUMMARY
-        
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "--- 完整错误日志已作为 Artifact 上传：build_errors ---" >> $GITHUB_STEP_SUMMARY
-
-    # ----------------------------------------------------
-    # 上传完整的错误日志文件，方便后续下载
-    # ----------------------------------------------------
-    - name: Upload Error Log Artifact
-      if: steps.build_step.outcome == 'failure'
-      uses: actions/upload-artifact@v4
-      with:
-        name: build_errors
-        path: build_log.txt
-        retention-days: 1
-        
-    # ----------------------------------------------------
-    # ✅ 最终修复：使用临时目录确保 Artifact 上传成功
+    # ✅ 从标准安装路径复制文件到 Artifact 临时目录
     # ----------------------------------------------------
     - name: Stage Final Binary
-      if: steps.build_step.outcome == 'success'
+      # 只有当前面的安装步骤成功时才运行 (implied by no 'continue-on-error')
+      if: success()
       run: |
-        echo "Copying binary to staging directory..."
-        # 创建一个临时目录用于打包
+        echo "Copying binary from $HOME/.cargo/bin to staging directory..."
+        # 1. 创建一个临时目录用于打包
         mkdir -p artifact_staging
-        # 明确复制二进制文件到临时目录
-        cp target/aarch64-linux-android/release/cyber_lookup artifact_staging/
+        # 2. 从 cross install 的标准输出路径复制二进制文件
+        # 文件名是项目名：cyber_lookup
+        cp $HOME/.cargo/bin/cyber_lookup artifact_staging/
+        echo "Staging successful."
       
     - name: Upload Final Binary Artifact
-      if: steps.build_step.outcome == 'success'
+      if: success()
       uses: actions/upload-artifact@v4
       with: 
         name: cyber_lookup_termux_aarch64
