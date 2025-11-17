@@ -20,7 +20,7 @@ jobs:
         targets: aarch64-linux-android
         
     - name: Setup Android NDK
-      # 使用已知的稳定版本，防止 Action 自动升级到 NDK 27.x 导致路径冲突
+      # 使用已知的稳定版本 (NDK 25c)，防止 Action 自动升级到 NDK 27.x 导致路径冲突
       uses: android-actions/setup-android@v3
       with:
         ndk: '25.2.9519653' 

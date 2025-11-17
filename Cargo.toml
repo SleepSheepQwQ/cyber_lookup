@@ -1,4 +1,4 @@
-[package]
+# Cargo.toml (你应该已经有类似以下的内容)
 name = "cyber_lookup"
 version = "0.1.0"
 edition = "2021"
@@ -22,5 +22,11 @@ clap = { version = "4.4", features = ["derive"] }
 colored = "2.0" 
 
 
-# --- Termux 交叉编译优化 ---
+# --- Termux 交叉编译优化 (以下内容必须确保存在并正确配置) ---
 [target.aarch64-linux-android]
+# 这告诉 Cargo 针对 android 目标，使用我们通过环境变量配置的 Clang 链接器
+rustflags = [
+    "-C", "link-arg=-landroid",
+    "-C", "link-arg=-llog",
+    "-C", "link-arg=-lz",  # 确保 zlib (sqlite3 bundled 依赖) 能被链接
+]
