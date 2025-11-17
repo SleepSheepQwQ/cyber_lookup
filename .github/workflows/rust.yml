@@ -57,8 +57,23 @@ jobs:
         path: build_log.txt
         retention-days: 1
         
-    - name: Package and upload Termux binary
-      # 只有成功时才打包
+    # ----------------------------------------------------
+    # ✅ 最终修复：使用临时目录确保 Artifact 上传成功
+    # ----------------------------------------------------
+    - name: Stage Final Binary
+      if: steps.build_step.outcome == 'success'
+      run: |
+        echo "Copying binary to staging directory..."
+        # 创建一个临时目录用于打包
+        mkdir -p artifact_staging
+        # 明确复制二进制文件到临时目录
+        cp target/aarch64-linux-android/release/cyber_lookup artifact_staging/
+      
+    - name: Upload Final Binary Artifact
       if: steps.build_step.outcome == 'success'
       uses: actions/upload-artifact@v4
-      with: {name: cyber_lookup_termux_aarch64, path: target/aarch64-linux-android/release/cyber_lookup, retention-days: 7}
+      with: 
+        name: cyber_lookup_termux_aarch64
+        # 上传临时目录中的所有文件
+        path: artifact_staging/*
+        retention-days: 7
