@@ -2,7 +2,7 @@ name: Rust Cross-Compilation for Termux (AArch64)
 
 on:
   push:
-    branches: ["master"]
+    branches: [ "master" ]
   workflow_dispatch:
 
 jobs:
@@ -18,36 +18,51 @@ jobs:
       with: {targets: aarch64-linux-android}
         
     # ----------------------------------------------------
-    # 1. 确保 cross 工具本身已安装
+    # 核心构建步骤：使用 cross build，并捕获日志
     # ----------------------------------------------------
-    - name: Install Cross Tool
-      run: cargo install cross
-        
-    # ----------------------------------------------------
-    # 2. 核心构建步骤：修复命令行参数
-    # ----------------------------------------------------
-    - name: Build and Install Binary using Cross
+    - name: Build Rust binary for Termux (Release) using Cross
       id: build_step
+      # 捕获日志到 build_log.txt 文件，并允许在失败时继续
       run: |
-        # ✅ 最终修复：移除 '--release' 参数。cross install 默认构建 release 版本
-        cross install --target aarch64-linux-android
+        # 使用 cross build 命令，让 cross 自动管理 NDK 链接器
+        cross build --release --target aarch64-linux-android 2>&1 | tee build_log.txt
+      continue-on-error: true
 
     # ----------------------------------------------------
-    # 3. 从标准安装路径复制文件到 Artifact 临时目录
+    # 自动日志分析和总结 (只在构建失败时运行)
     # ----------------------------------------------------
-    - name: Stage Final Binary
-      if: success()
+    - name: Summarize and Highlight Errors (Automated Analysis)
+      if: steps.build_step.outcome == 'failure'
       run: |
-        echo "Copying binary from $HOME/.cargo/bin to staging directory..."
-        mkdir -p artifact_staging
-        # 文件名是项目名：cyber_lookup
-        cp $HOME/.cargo/bin/cyber_lookup artifact_staging/
-        echo "Staging successful."
-      
-    - name: Upload Final Binary Artifact
-      if: success()
+        echo "--- 🚨 交叉编译错误摘要 🚨 ---" >> $GITHUB_STEP_SUMMARY
+        echo "## 重点错误提炼" >> $GITHUB_STEP_SUMMARY
+        
+        # 运行高效的 grep 过滤命令，提炼关键错误信息
+        grep -E 'error:|note:|failed:|cannot find|undefined reference|linker|collect2|aarch64-linux-android' build_log.txt \
+        | head -n 50 \
+        | sed 's/^/- /' \
+        >> $GITHUB_STEP_SUMMARY
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "--- 完整错误日志已作为 Artifact 上传：build_errors ---" >> $GITHUB_STEP_SUMMARY
+
+    # ----------------------------------------------------
+    # 上传完整的错误日志文件，方便后续下载
+    # ----------------------------------------------------
+    - name: Upload Error Log Artifact
+      if: steps.build_step.outcome == 'failure'
       uses: actions/upload-artifact@v4
-      with: 
+      with:
+        name: build_errors
+        path: build_log.txt
+        retention-days: 1
+        
+    - name: Package and upload Termux binary
+      # 仅在构建成功时上传
+      if: steps.build_step.outcome == 'success'
+      uses: actions/upload-artifact@v4
+      with:
         name: cyber_lookup_termux_aarch64
-        path: artifact_staging/*
+        # 注意：路径是 target/TARGET/release/BINARY_NAME
+        path: target/aarch64-linux-android/release/cyber_lookup
         retention-days: 7

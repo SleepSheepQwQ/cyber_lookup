@@ -13,7 +13,8 @@ axum = "0.7"
 serde = { version = "1.0", features = ["derive"] }
 
 # SQLite 数据库驱动
-rusqlite = { version = "0.30", features = ["bundled"] } # ✅ 关键：确保启用了 bundled
+# 修正：移除 features = ["bundled"]，使用 NDK 系统库。
+rusqlite = { version = "0.30" } 
 
 # CLI 命令行解析
 clap = { version = "4.4", features = ["derive"] }
@@ -21,9 +22,10 @@ clap = { version = "4.4", features = ["derive"] }
 # 终端输出增强
 colored = "2.0" 
 
+
 # --- 交叉编译稳定性及体积优化 (最佳实践) ---
 [profile.release]
-# 核心修复：解决 -lunwind 链接问题。
+# 核心修正：解决 Android 目标上找不到 libunwind/libgcc 的链接问题。
 panic = "abort" 
 
 # 体积优化
@@ -37,3 +39,5 @@ codegen-units = 1
 
 # 移除符号表
 strip = "symbols"
+
+# ⚠️ 关键移除：请确保文件中**没有** [target.aarch64-linux-android] 区块，避免与 cross 冲突。
