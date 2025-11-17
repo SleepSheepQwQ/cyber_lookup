@@ -3,16 +3,20 @@ name: Rust Cross-Compilation for Termux (AArch64)
 
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch:
+    # 修正: 监听你的实际主分支 'master'，以触发 CI/CD
+    branches: [ "master" ]
+  workflow_dispatch: # 允许手动在 GitHub Actions 页面触发
 
 jobs:
   build_termux:
+    name: Build for Termux (AArch64)
     runs-on: ubuntu-latest
+    
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v4
 
-    # --- Termux 交叉编译设置 ---
+    # --- 依赖安装与目标设置 ---
     - name: Install Rust toolchain and target
       uses: dtolnay/rust-toolchain@stable
       with:
@@ -21,22 +25,29 @@ jobs:
     - name: Setup Android NDK
       uses: actions/setup-android@v3
       with:
-        ndk: '25.1.8937393' # 推荐的稳定版本
+        # 使用稳定的 NDK 版本，兼容性好
+        ndk: '25.1.8937393' 
         
-    - name: Set NDK Environment Variables
+    - name: Set NDK Environment Variables (Crucial for Rusqlite Linking)
       run: |
-        # 设置链接器路径，Termux 通常使用 API Level 29 或更高
+        # NDK 路径
         NDK_BIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
+        
+        # 显式设置链接器，指向 NDK 的 clang 编译器 (使用 API Level 29)
         echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${NDK_BIN}/aarch64-linux-android29-clang" >> $GITHUB_ENV
 
     # --- 编译步骤 ---
     - name: Build Rust binary for Termux (Release)
       run: |
+        # 使用 --release 编译优化版本
         cargo build --release --target aarch64-linux-android
         
+    # --- 产物上传 ---
     - name: Package and upload Termux binary
       uses: actions/upload-artifact@v4
       with:
+        # 产物名称，便于下载
         name: cyber_lookup_termux_aarch64
+        # 二进制文件的最终路径
         path: target/aarch64-linux-android/release/cyber_lookup 
         retention-days: 7

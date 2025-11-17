@@ -4,16 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# 异步运行时
-tokio = { version = "1.35", features = ["full"] }
+# 异步运行时 (版本稳定，features="full"提供所有核心功能)
+tokio = { version = "1.35", features = ["full"] } 
 
-# API 框架 (Axum)
+# API 框架
 axum = "0.7"
+# 数据序列化/反序列化 (仅保留serde，因为serde_json在代码中未直接使用)
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
 
 # SQLite 数据库驱动
-# 'bundled' feature ensures static linking, crucial for easy Termux cross-compilation
+# 'bundled' feature 确保静态链接 SQLite C 库，对于交叉编译到 Termux 至关重要
 rusqlite = { version = "0.30", features = ["bundled"] } 
 
 # CLI 命令行解析
@@ -22,7 +22,8 @@ clap = { version = "4.4", features = ["derive"] }
 # 终端输出增强
 colored = "2.0" 
 
+
 # --- Termux 交叉编译优化 ---
-# 使用 aarch64-linux-android 目标
+# 目标配置: aarch64-linux-android (Termux/64位 Android)
 [target.aarch64-linux-android]
-# 没有额外依赖，因为 rusqlite 使用了 bundled feature
+# 没有额外依赖，因为 rusqlite 使用了 bundled feature，避免了系统库依赖
