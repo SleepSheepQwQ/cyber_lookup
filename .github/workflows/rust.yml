@@ -3,7 +3,6 @@ name: Rust Cross-Compilation for Termux (AArch64)
 
 on:
   push:
-    # 监听主分支 'master'
     branches: [ "master" ]
   workflow_dispatch:
 
@@ -20,41 +19,36 @@ jobs:
       with:
         targets: aarch64-linux-android
         
-    - name: Setup Android NDK
-      # 保持指定版本，尽管 Actions 可能自动回退，但我们确保路径定义能适应 NDK 结构
+    - name: Setup Android NDK (Using stable version to prevent auto-upgrade conflicts)
       uses: android-actions/setup-android@v3
       with:
-        ndk: '25.1.8937393' 
+        # 使用已知稳定的 NDK 25c 版本，以减少路径自动回退到 27.x 带来的问题
+        ndk: '25.2.9519653' 
         
-    - name: Set NDK Environment Variables (FINAL FIX - Using NDK-Toolchain Path)
+    - name: Set NDK Environment Variables (ULTIMATE FIX: Target-Specific LLVM AR)
       run: |
-        # 1. 定义 NDK 工具链路径
-        # $ANDROID_NDK_HOME 变量由 setup-android Action 自动设置
+        # NDK 路径：由 setup-android Action 提供的根目录
         NDK_BIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
         
-        # 2. 定义具体的工具名 (使用交叉编译的标准三元组命名)
-        # 注意：使用 aarch64-linux-android29 是为了兼容rusqlite/cc-rs对老工具链名的依赖
-        CLANG_TOOL="${NDK_BIN}/aarch64-linux-android29-clang"
-        CLANGXX_TOOL="${NDK_BIN}/aarch64-linux-android29-clang++"
-        # 这是 Archiver 工具，解决最后一次失败 (No such file or directory) 的关键
-        AR_TOOL="${NDK_BIN}/aarch64-linux-android-ar"
+        # 1. 定义 LLVM 工具链路径 (针对 API 29 和 NDK 23+ 的命名)
+        CLANG_BIN="${NDK_BIN}/aarch64-linux-android29-clang"
+        LLVM_AR_BIN="${NDK_BIN}/llvm-ar"
         
-        # 3. 【终极修复：设置所有交叉编译工具链】
+        # 2. 强制使用 Target-Specific 变量 (最高优先级，最不容易被 Action 覆盖)
         
-        # A. 修复 Archiver (AR) 路径
-        echo "AR=${AR_TOOL}" >> $GITHUB_ENV
-        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_AR=${AR_TOOL}" >> $GITHUB_ENV
+        # 核心：设置 LLVM AR (解决最后的 "No such file" 错误)
+        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_AR=${LLVM_AR_BIN}" >> $GITHUB_ENV
         
-        # B. 修复 C/C++ 编译器 (CC/CXX) 路径
-        echo "CC_AARCH64_LINUX_ANDROID=${CLANG_TOOL}" >> $GITHUB_ENV
-        echo "CXX_AARCH64_LINUX_ANDROID=${CLANGXX_TOOL}" >> $GITHUB_ENV
-        echo "CC=${CLANG_TOOL}" >> $GITHUB_ENV
-        echo "CXX=${CLANGXX_TOOL}" >> $GITHUB_ENV
+        # 核心：设置 Clang 编译器和链接器
+        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_CC=${CLANG_BIN}" >> $GITHUB_ENV
+        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_CXX=${CLANG_BIN}++" >> $GITHUB_ENV
+        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${CLANG_BIN}" >> $GITHUB_ENV
         
-        # C. 设置链接器路径 (LINKER)
-        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${CLANG_TOOL}" >> $GITHUB_ENV
+        # 3. 同时设置 CC/CXX 别名，确保所有cc-rs版本兼容性 (可选，但推荐)
+        echo "CC_AARCH64_LINUX_ANDROID=${CLANG_BIN}" >> $GITHUB_ENV
+        echo "CXX_AARCH64_LINUX_ANDROID=${CLANG_BIN}++" >> $GITHUB_ENV
 
-    # --- 编译步骤 ---
+
     - name: Build Rust binary for Termux (Release)
       run: |
         cargo build --release --target aarch64-linux-android
