@@ -13,7 +13,7 @@ axum = "0.7"
 serde = { version = "1.0", features = ["derive"] }
 
 # SQLite 数据库驱动
-rusqlite = { version = "0.30" } # <--- 关键修复：移除 features = ["bundled"]，依赖 NDK 系统库。
+rusqlite = { version = "0.30", features = ["bundled"] } # ✅ 最终修复：重新启用 bundled，静态编译 C 库。
 
 # CLI 命令行解析
 clap = { version = "4.4", features = ["derive"] }
@@ -37,5 +37,3 @@ codegen-units = 1
 
 # 移除符号表
 strip = "symbols"
-
-# 关键移除：已删除 [target.aarch64-linux-android] 区块，避免与 cross 冲突。
