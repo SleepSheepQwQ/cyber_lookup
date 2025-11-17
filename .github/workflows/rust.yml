@@ -1,4 +1,4 @@
-name: Rust Cross-Compilation for Termux (AArch64)
+name: Rust Cross-Compilation for Termux (AArch64) using Cross
 
 on:
   push:
@@ -7,35 +7,31 @@ on:
 
 jobs:
   build_termux:
-    name: Build for Termux (AArch64)
+    name: Build using Cross
     runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v4
 
     - name: Install Rust toolchain and target
+      # dtolnay/rust-toolchain 仍然是安全的标准步骤
       uses: dtolnay/rust-toolchain@stable
       with: {targets: aarch64-linux-android}
         
-    - name: Setup Android NDK
-      uses: android-actions/setup-android@v3
-      with: {ndk: '25.2.9519653'}
-        
-    - name: Set NDK Environment Variables (UGLY SAFE FIX)
-      run: |
-        NDK_BIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
-        CLANG_BIN="${NDK_BIN}/aarch64-linux-android29-clang"
-        LLVM_AR_BIN="${NDK_BIN}/llvm-ar"
-        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_CC=${CLANG_BIN}" >> $GITHUB_ENV
-        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_CXX=${CLANG_BIN}++" >> $GITHUB_ENV
-        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_AR=${LLVM_AR_BIN}" >> $GITHUB_ENV
-        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${CLANG_BIN}" >> $GITHUB_ENV
-        echo "CC_AARCH64_LINUX_ANDROID=${CLANG_BIN}" >> $GITHUB_ENV
-        echo "CXX_AARCH64_LINUX_ANDROID=${CLANG_BIN}++" >> $GITHUB_ENV
-
-    - name: Build Rust binary for Termux (Release)
-      run: cargo build --release --target aarch64-linux-android
+    - name: Install 'cross'
+      # 安装 cross 工具
+      run: cargo install cross
+      
+    - name: Build Rust binary for Termux (Release) using Cross
+      # 使用 cross 命令代替 cargo build。cross 会自动在 Docker 容器内进行编译
+      # 避免所有 NDK/Linker 环境变量的复杂性。
+      run: cross build --release --target aarch64-linux-android
         
     - name: Package and upload Termux binary
       uses: actions/upload-artifact@v4
-      with: {name: cyber_lookup_termux_aarch64, path: target/aarch64-linux-android/release/cyber_lookup, retention-days: 7}
+      with: 
+        name: cyber_lookup_termux_aarch64
+        # 注意：cross 默认将二进制文件放在 target/aarch64-unknown-linux-gnu/release/
+        # 但 Android target 路径是固定的。
+        path: target/aarch64-linux-android/release/cyber_lookup 
+        retention-days: 7

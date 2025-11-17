@@ -6,26 +6,17 @@ edition = "2021"
 [dependencies]
 # 异步运行时
 tokio = { version = "1.35", features = ["full"] } 
-
 # API 框架
 axum = "0.7"
 # 数据序列化/反序列化
 serde = { version = "1.0", features = ["derive"] }
-
-# SQLite 数据库驱动
+# SQLite 数据库驱动 (必须使用 bundled feature)
 rusqlite = { version = "0.30", features = ["bundled"] } 
-
 # CLI 命令行解析
 clap = { version = "4.4", features = ["derive"] }
-
 # 终端输出增强
 colored = "2.0" 
 
-# --- Termux 交叉编译优化 ---
-[target.aarch64-linux-android]
-# 这告诉 Cargo 针对 android 目标，使用我们通过环境变量配置的 Clang 链接器
-rustflags = [
-    "-C", "link-arg=-landroid",
-    "-C", "link-arg=-llog",
-    "-C", "link-arg=-lz",
-]
+# [target.aarch64-linux-android] 部分不再需要，因为 cross 会处理链接。
+# 但由于 rusqlite 依赖 C 库，如果 cross 失败，我们再尝试添加它。
+# 暂时保持干净。
