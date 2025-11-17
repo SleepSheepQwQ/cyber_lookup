@@ -19,32 +19,29 @@ jobs:
       with:
         targets: aarch64-linux-android
         
-    - name: Setup Android NDK (Using stable version to prevent auto-upgrade conflicts)
+    - name: Setup Android NDK
+      # 使用已知的稳定版本，防止 Action 自动升级到 NDK 27.x 导致路径冲突
       uses: android-actions/setup-android@v3
       with:
-        # 使用已知稳定的 NDK 25c 版本，以减少路径自动回退到 27.x 带来的问题
         ndk: '25.2.9519653' 
         
     - name: Set NDK Environment Variables (ULTIMATE FIX: Target-Specific LLVM AR)
       run: |
-        # NDK 路径：由 setup-android Action 提供的根目录
+        # 确保 Bash 语法和变量定义正确
         NDK_BIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
         
-        # 1. 定义 LLVM 工具链路径 (针对 API 29 和 NDK 23+ 的命名)
+        # 定义 Clang 编译器和 LLVM Archiver 的路径
         CLANG_BIN="${NDK_BIN}/aarch64-linux-android29-clang"
         LLVM_AR_BIN="${NDK_BIN}/llvm-ar"
         
-        # 2. 强制使用 Target-Specific 变量 (最高优先级，最不容易被 Action 覆盖)
-        
-        # 核心：设置 LLVM AR (解决最后的 "No such file" 错误)
-        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_AR=${LLVM_AR_BIN}" >> $GITHUB_ENV
-        
-        # 核心：设置 Clang 编译器和链接器
+        # 1. 强制使用 Target-Specific 变量 (最高优先级)
         echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_CC=${CLANG_BIN}" >> $GITHUB_ENV
         echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_CXX=${CLANG_BIN}++" >> $GITHUB_ENV
+        # 修复 AR 问题：使用 llvm-ar
+        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_AR=${LLVM_AR_BIN}" >> $GITHUB_ENV
         echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${CLANG_BIN}" >> $GITHUB_ENV
         
-        # 3. 同时设置 CC/CXX 别名，确保所有cc-rs版本兼容性 (可选，但推荐)
+        # 2. 同时设置 CC/CXX 别名，确保兼容性
         echo "CC_AARCH64_LINUX_ANDROID=${CLANG_BIN}" >> $GITHUB_ENV
         echo "CXX_AARCH64_LINUX_ANDROID=${CLANG_BIN}++" >> $GITHUB_ENV
 
