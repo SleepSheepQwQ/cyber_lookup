@@ -21,14 +21,12 @@ const DEFAULT_DATABASE_FILE: &str = "uid_phone_map.db";
 
 // --- 自定义错误类型 ---
 
-// 定义一个统一的应用程序错误类型，方便错误处理
 #[derive(Debug)]
 enum AppError {
     DbError(SqlError),
     BlockingTaskError,
 }
 
-// 实现 IntoResponse，使 AppError 可以作为 Axum 路由的返回类型
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
         eprintln!("Application Error: {:?}", self);
@@ -42,12 +40,10 @@ impl IntoResponse for AppError {
                 "Internal server error".to_string(),
             ),
         };
-
         (status, body).into_response()
     }
 }
 
-// 转换 Rusqlite::Error 到 AppError
 impl From<SqlError> for AppError {
     fn from(err: SqlError) -> Self {
         AppError::DbError(err)
@@ -124,7 +120,7 @@ async fn api_lookup(
     State(state): State<Arc<AppState>>,
 ) -> Result<impl IntoResponse, AppError> {
     
-    let id_clone = id.clone(); // 克隆 id 供闭包使用
+    let id_clone = id.clone(); 
 
     let response = task::spawn_blocking(move || {
         let conn = state.get_db_connection()?;
@@ -164,7 +160,6 @@ async fn api_status(
             Err(e) => return Err(e), 
         };
         
-        // 返回成功的数据和 ID
         Ok((exists, id_clone))
     })
     .await
@@ -182,12 +177,11 @@ async fn api_status(
     Ok((StatusCode::OK, Json(status_response)))
 }
 
-// --- CLI 命令行接口 (修改 Commands) ---
+// --- CLI 命令行接口 ---
 
 #[derive(Parser)]
 #[command(author, version, about = "Cyber Lookup Service CLI & API Server")]
 struct Cli {
-    // 默认全局参数，所有子命令共享
     #[arg(short, long, default_value = DEFAULT_DATABASE_FILE)]
     db_path: String,
     
@@ -208,8 +202,6 @@ enum Commands {
 
 // 终端交互函数
 fn run_cli(state: Arc<AppState>) {
-// ... (run_cli, handle_cli_lookup, handle_cli_status 保持不变)
-
     println!("{}", "--- CYBER LOOKUP V0.1 ---".green().bold());
     println!("{}", "Enter 'lookup <ID>' or 'status <ID>' or 'exit'".cyan());
     println!("{}", format!("DB Path: {}", state.db_path).yellow());
@@ -293,13 +285,12 @@ fn handle_cli_status(state: &Arc<AppState>, id: &str) {
 }
 
 
-// --- 主函数 (修改状态初始化) ---
+// --- 主函数 ---
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     
-    // 关键修改：从 CLI 参数中获取 DB 路径
     let db_path = cli.db_path;
     let state = Arc::new(AppState::new(db_path.clone()));
 
@@ -319,7 +310,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             axum::serve(listener, app).await?; 
         }
         Commands::Termux => {
-            // 在 Termux 模式下，run_cli 内部会打印路径
             run_cli(state);
         }
     }
