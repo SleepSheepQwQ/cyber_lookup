@@ -21,35 +21,38 @@ jobs:
         targets: aarch64-linux-android
         
     - name: Setup Android NDK
-      # 修正：使用正确的 Action 路径
+      # 保持指定版本，尽管 Actions 可能自动回退，但我们确保路径定义能适应 NDK 结构
       uses: android-actions/setup-android@v3
       with:
         ndk: '25.1.8937393' 
         
-    - name: Set NDK Environment Variables (Final and Direct Fix for AR)
+    - name: Set NDK Environment Variables (FINAL FIX - Using NDK-Toolchain Path)
       run: |
-        # 1. 定义 NDK 工具链路径和编译器名称
+        # 1. 定义 NDK 工具链路径
+        # $ANDROID_NDK_HOME 变量由 setup-android Action 自动设置
         NDK_BIN=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
-        CLANG_PATH="${NDK_BIN}/aarch64-linux-android29"
-        CLANG_BIN="${CLANG_PATH}-clang"
-        CLANGXX_BIN="${CLANG_PATH}-clang++"
-        # 核心新增：Archiver 工具路径
-        AR_BIN="${NDK_BIN}/aarch64-linux-android-ar"
-
-        # 2. 【终极修复：设置所有交叉编译工具链】
         
-        # A. 设置 Archiver (AR) - 解决找不到 'aarch64-linux-android-ar' 的错误
-        echo "AR=${AR_BIN}" >> $GITHUB_ENV
-        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_AR=${AR_BIN}" >> $GITHUB_ENV
+        # 2. 定义具体的工具名 (使用交叉编译的标准三元组命名)
+        # 注意：使用 aarch64-linux-android29 是为了兼容rusqlite/cc-rs对老工具链名的依赖
+        CLANG_TOOL="${NDK_BIN}/aarch64-linux-android29-clang"
+        CLANGXX_TOOL="${NDK_BIN}/aarch64-linux-android29-clang++"
+        # 这是 Archiver 工具，解决最后一次失败 (No such file or directory) 的关键
+        AR_TOOL="${NDK_BIN}/aarch64-linux-android-ar"
         
-        # B. 设置 C/C++ 编译器 (CC/CXX) - 解决找不到 'clang' 的错误
-        echo "CC_AARCH64_LINUX_ANDROID=${CLANG_BIN}" >> $GITHUB_ENV
-        echo "CXX_AARCH64_LINUX_ANDROID=${CLANGXX_BIN}" >> $GITHUB_ENV
-        echo "CC=${CLANG_BIN}" >> $GITHUB_ENV
-        echo "CXX=${CLANGXX_BIN}" >> $GITHUB_ENV
+        # 3. 【终极修复：设置所有交叉编译工具链】
+        
+        # A. 修复 Archiver (AR) 路径
+        echo "AR=${AR_TOOL}" >> $GITHUB_ENV
+        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_AR=${AR_TOOL}" >> $GITHUB_ENV
+        
+        # B. 修复 C/C++ 编译器 (CC/CXX) 路径
+        echo "CC_AARCH64_LINUX_ANDROID=${CLANG_TOOL}" >> $GITHUB_ENV
+        echo "CXX_AARCH64_LINUX_ANDROID=${CLANGXX_TOOL}" >> $GITHUB_ENV
+        echo "CC=${CLANG_TOOL}" >> $GITHUB_ENV
+        echo "CXX=${CLANGXX_TOOL}" >> $GITHUB_ENV
         
         # C. 设置链接器路径 (LINKER)
-        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${CLANG_BIN}" >> $GITHUB_ENV
+        echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${CLANG_TOOL}" >> $GITHUB_ENV
 
     # --- 编译步骤 ---
     - name: Build Rust binary for Termux (Release)
