@@ -21,11 +21,11 @@ clap = { version = "4.4", features = ["derive"] }
 # 终端输出增强
 colored = "2.0" 
 
-# --- Termux 交叉编译优化 (已注释掉，让 cross 自动处理链接器参数) ---
-# [target.aarch64-linux-android]
+# --- Termux 交叉编译优化 (恢复必要的 Android 链接库) ---
+[target.aarch64-linux-android]
 # 这告诉 Cargo 针对 android 目标，使用我们通过环境变量配置的 Clang 链接器
-# rustflags = [
-#     "-C", "link-arg=-landroid",
-#     "-C", "link-arg=-llog",
-#     "-C", "link-arg=-lz",
-# ]
+rustflags = [
+    "-C", "link-arg=-landroid",
+    "-C", "link-arg=-llog",
+    "-C", "link-arg=-lz",
+]
