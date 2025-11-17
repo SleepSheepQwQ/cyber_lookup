@@ -17,20 +17,14 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       with: {targets: aarch64-linux-android}
         
-    # -----------------------------------------------------
-    # 移除手动安装 NDK 和设置环境变量的步骤，避免链接器冲突
-    # -----------------------------------------------------
-    
     - name: Build Rust binary for Termux (Release) using Cross
-      # 保留 actions-rs/cargo 动作并启用 cross
+      # 启用 cross，让它来处理 NDK 的复杂路径设置
       uses: actions-rs/cargo@v1
       with:
         command: build
         args: --release --target aarch64-linux-android
         use-cross: true 
-      env:
-        # 强制使用 "abort" panic 策略，这是解决 'cannot find -lunwind' 链接错误的权威方法。
-        RUSTFLAGS: "-C panic=abort" 
+      # 注意：不再设置 RUSTFLAGS 环境变量
         
     - name: Package and upload Termux binary
       uses: actions/upload-artifact@v4

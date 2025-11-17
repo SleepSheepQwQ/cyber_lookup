@@ -13,7 +13,7 @@ axum = "0.7"
 serde = { version = "1.0", features = ["derive"] }
 
 # SQLite 数据库驱动
-rusqlite = { version = "0.30", features = ["bundled"] } 
+rusqlite = { version = "0.30" } # <--- (最佳实践 2) 移除 features = ["bundled"]，依赖 NDK 系统库。
 
 # CLI 命令行解析
 clap = { version = "4.4", features = ["derive"] }
@@ -21,11 +21,12 @@ clap = { version = "4.4", features = ["derive"] }
 # 终端输出增强
 colored = "2.0" 
 
-# --- Termux 交叉编译优化 (恢复必要的 Android 链接库) ---
-[target.aarch64-linux-android]
-# 这告诉 Cargo 针对 android 目标，使用我们通过环境变量配置的 Clang 链接器
-rustflags = [
-    "-C", "link-arg=-landroid",
-    "-C", "link-arg=-llog",
-    "-C", "link-arg=-lz",
-]
+# --- 交叉编译稳定性及体积优化 (最佳实践 1) ---
+[profile.release]
+panic = "abort" # 核心修复，解决 -lunwind 链接问题。
+opt-level = "z" # 体积优化
+lto = true      # 链接时间优化
+codegen-units = 1 # LTO 增强
+strip = "symbols" # 移除符号表
+
+# (最佳实践 3) 关键更改：移除了 [target.aarch64-linux-android] 区块，避免与 cross 容器的 NDK 链接器配置冲突。
