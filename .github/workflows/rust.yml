@@ -8,7 +8,7 @@ on:
 jobs:
   build_termux:
     name: Build for Termux (AArch64)
-    runs-on: "ubuntu-latest"  # 字符串化
+    runs-on: "ubuntu-latest"
     
     steps:
       - uses: actions/checkout@v4
@@ -20,41 +20,22 @@ jobs:
           
       - name: Clean and Build Rust binary using Cross
         id: build_step
-        run: |
-          echo "Forcing a clean build to bypass potential caching/skip issues."
-          cross clean --target aarch64-linux-android
-          cross build --release --target aarch64-linux-android -vvv 2>&1 | tee build_log.txt
-        continue-on-error: "true" # 最终修复：将 true 字符串化
-        # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        
+        # 终极修复：使用单行字符串，消除 YAML 块解析问题
+        run: "echo \"Forcing a clean build.\"; cross clean --target aarch64-linux-android; cross build --release --target aarch64-linux-android -vvv 2>&1 | tee build_log.txt"
+        continue-on-error: "true" 
+
       - name: Debug: List Build Output Path
-        run: |
-          echo "Listing contents of target/aarch64-linux-android/release/:"
-          ls -lR target/aarch64-linux-android/release/
+        run: "echo \"Listing contents of target/aarch64-linux-android/release/:\"; ls -lR target/aarch64-linux-android/release/"
 
       - name: Enforce Binary Existence and Fail
-        run: |
-          FINAL_PATH="target/aarch64-linux-android/release/cyber_lookup"
-          if [ ! -f "$FINAL_PATH" ]; then
-            echo "❌ Binary NOT found at expected path: $FINAL_PATH"
-            echo "The build was likely skipped or failed to output the file. Review the full build_log.txt."
-            exit 1 
-          fi
-          echo "✅ Binary found at: $FINAL_PATH"
+        run: "FINAL_PATH=\"target/aarch64-linux-android/release/cyber_lookup\"; if [ ! -f \"$FINAL_PATH\" ]; then echo \"❌ Binary NOT found at expected path: $FINAL_PATH\"; echo \"The build was likely skipped. Review build_log.txt.\"; exit 1; fi; echo \"✅ Binary found at: $FINAL_PATH\""
 
       - name: Summarize and Highlight Errors (Automated Analysis)
-        if: "failure()" # 字符串化
-        run: |
-          echo "--- 🚨 交叉编译错误摘要 🚨 ---" >> $GITHUB_STEP_SUMMARY
-          echo "## 重点错误提炼" >> $GITHUB_STEP_SUMMARY
-          
-          grep -E 'error:|note:|failed:|cannot find|undefined reference|linker|collect2|aarch64-linux-android' build_log.txt | head -n 50 | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "--- 完整错误日志已作为 Artifact 上传：build_errors ---\n" >> $GITHUB_STEP_SUMMARY
+        if: "failure()"
+        run: "echo \"--- 🚨 交叉编译错误摘要 🚨 ---\" >> $GITHUB_STEP_SUMMARY; echo \"## 重点错误提炼\" >> $GITHUB_STEP_SUMMARY; grep -E 'error:|note:|failed:|cannot find|undefined reference|linker|collect2|aarch64-linux-android' build_log.txt | head -n 50 | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY; echo \"\" >> $GITHUB_STEP_SUMMARY; echo \"--- 完整错误日志已作为 Artifact 上传：build_errors ---\n\" >> $GITHUB_STEP_SUMMARY"
 
       - name: Upload Error Log Artifact
-        if: "failure()" # 字符串化
+        if: "failure()"
         uses: actions/upload-artifact@v4
         with:
           name: build_errors
@@ -62,7 +43,7 @@ jobs:
           retention-days: 1
           
       - name: Package and upload Termux binary
-        if: "success()" # 字符串化
+        if: "success()"
         uses: actions/upload-artifact@v4
         with:
           name: cyber_lookup_termux_aarch64
