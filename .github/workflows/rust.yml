@@ -11,59 +11,60 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      # ^^^^^^ 确保这里是相对于 'steps:' 向内缩进 2 个空格
+      
+      - name: Install Rust toolchain and target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+          
+      - name: Clean and Build Rust binary using Cross
+        id: build_step
+        run: |
+          echo "Forcing a clean build to bypass potential caching/skip issues."
+          cross clean --target aarch64-linux-android
+          cross build --release --target aarch64-linux-android -vvv 2>&1 | tee build_log.txt
+        continue-on-error: true
 
-    - name: Install Rust toolchain and target
-      uses: dtolnay/rust-toolchain@stable
-      with: {targets: aarch64-linux-android}
-        
-    - name: Clean and Build Rust binary using Cross
-      id: build_step
-      run: |
-        echo "Forcing a clean build to bypass potential caching/skip issues."
-        cross clean --target aarch64-linux-android
-        cross build --release --target aarch64-linux-android -vvv 2>&1 | tee build_log.txt
-      continue-on-error: true
+      - name: Debug: List Build Output Path
+        run: |
+          echo "Listing contents of target/aarch64-linux-android/release/:"
+          ls -lR target/aarch64-linux-android/release/
 
-    - name: Debug: List Build Output Path
-      run: |
-        echo "Listing contents of target/aarch64-linux-android/release/:"
-        ls -lR target/aarch64-linux-android/release/
+      - name: Enforce Binary Existence and Fail
+        run: |
+          FINAL_PATH="target/aarch64-linux-android/release/cyber_lookup"
+          if [ ! -f "$FINAL_PATH" ]; then
+            echo "❌ Binary NOT found at expected path: $FINAL_PATH"
+            echo "The build was likely skipped or failed to output the file. Review the full build_log.txt."
+            exit 1 
+          fi
+          echo "✅ Binary found at: $FINAL_PATH"
 
-    - name: Enforce Binary Existence and Fail
-      run: |
-        FINAL_PATH="target/aarch64-linux-android/release/cyber_lookup"
-        if [ ! -f "$FINAL_PATH" ]; then
-          echo "❌ Binary NOT found at expected path: $FINAL_PATH"
-          echo "The build was likely skipped or failed to output the file. Review the full build_log.txt."
-          exit 1 
-        fi
-        echo "✅ Binary found at: $FINAL_PATH"
+      - name: Summarize and Highlight Errors (Automated Analysis)
+        if: failure()
+        run: |
+          echo "--- 🚨 交叉编译错误摘要 🚨 ---" >> $GITHUB_STEP_SUMMARY
+          echo "## 重点错误提炼" >> $GITHUB_STEP_SUMMARY
+          
+          grep -E 'error:|note:|failed:|cannot find|undefined reference|linker|collect2|aarch64-linux-android' build_log.txt | head -n 50 | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "--- 完整错误日志已作为 Artifact 上传：build_errors ---\n" >> $GITHUB_STEP_SUMMARY
 
-    - name: Summarize and Highlight Errors (Automated Analysis)
-      if: failure()
-      run: |
-        echo "--- 🚨 交叉编译错误摘要 🚨 ---" >> $GITHUB_STEP_SUMMARY
-        echo "## 重点错误提炼" >> $GITHUB_STEP_SUMMARY
-        
-        # 终极修复：管道操作全部合并到一行，消除行连接符 \ 的潜在干扰
-        grep -E 'error:|note:|failed:|cannot find|undefined reference|linker|collect2|aarch64-linux-android' build_log.txt | head -n 50 | sed 's/^/- /' >> $GITHUB_STEP_SUMMARY
-        
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "--- 完整错误日志已作为 Artifact 上传：build_errors ---\n" >> $GITHUB_STEP_SUMMARY
-
-    - name: Upload Error Log Artifact
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: build_errors
-        path: build_log.txt
-        retention-days: 1
-        
-    - name: Package and upload Termux binary
-      if: success()
-      uses: actions/upload-artifact@v4
-      with:
-        name: cyber_lookup_termux_aarch64
-        path: target/aarch64-linux-android/release/cyber_lookup
-        retention-days: 7
+      - name: Upload Error Log Artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build_errors
+          path: build_log.txt
+          retention-days: 1
+          
+      - name: Package and upload Termux binary
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cyber_lookup_termux_aarch64
+          path: target/aarch64-linux-android/release/cyber_lookup
+          retention-days: 7
