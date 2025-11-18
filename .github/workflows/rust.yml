@@ -20,7 +20,6 @@ jobs:
         
       - name: "Install Cross Tool"
         # 步骤 2: 解决 'cross: command not found' 错误
-        # 使用 cargo install 安装 cross 插件
         run: cargo install cross --git https://github.com/cross-rs/cross
 
       - name: "Clean and Build Binary"
