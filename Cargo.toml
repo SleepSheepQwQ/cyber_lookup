@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# 异步运行时 - 精简到所需的核心功能
-tokio = { version = "1.35", features = ["rt-current-thread", "macros", "net", "sync", "time"] } 
+# 异步运行时
+tokio = { version = "1.35", features = ["full"] } 
 
 # API 框架
 axum = "0.7"
@@ -13,8 +13,7 @@ axum = "0.7"
 serde = { version = "1.0", features = ["derive"] }
 
 # SQLite 数据库驱动
-# 修正：移除 features = ["bundled"]，使用 NDK 系统库。
-rusqlite = { version = "0.30" } 
+rusqlite = { version = "0.30" } # <--- 关键修正：移除 features = ["bundled"]
 
 # CLI 命令行解析
 clap = { version = "4.4", features = ["derive"] }
@@ -22,22 +21,15 @@ clap = { version = "4.4", features = ["derive"] }
 # 终端输出增强
 colored = "2.0" 
 
-
 # --- 交叉编译稳定性及体积优化 (最佳实践) ---
 [profile.release]
-# 核心修正：解决 Android 目标上找不到 libunwind/libgcc 的链接问题。
+# 核心修复：解决 'cannot find -lunwind' 链接错误，必须使用 "abort" 策略。
 panic = "abort" 
 
 # 体积优化
 opt-level = "z"
-
-# 链接时间优化 (LTO)
 lto = true
-
-# LTO 增强
 codegen-units = 1
-
-# 移除符号表
 strip = "symbols"
 
-# ⚠️ 关键移除：请确保文件中**没有** [target.aarch64-linux-android] 区块，避免与 cross 冲突。
+# 关键：请确保您已移除之前尝试添加的 [target.aarch64-linux-android] 区块
