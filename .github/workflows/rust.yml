@@ -17,9 +17,6 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       with: {targets: aarch64-linux-android}
         
-    # ----------------------------------------------------
-    # 核心构建步骤：强制清除并构建
-    # ----------------------------------------------------
     - name: Clean and Build Rust binary using Cross
       id: build_step
       run: |
@@ -28,9 +25,6 @@ jobs:
         cross build --release --target aarch64-linux-android -vvv 2>&1 | tee build_log.txt
       continue-on-error: true
 
-    # ----------------------------------------------------
-    # 验证阶段
-    # ----------------------------------------------------
     - name: Debug: List Build Output Path
       run: |
         echo "Listing contents of target/aarch64-linux-android/release/:"
@@ -46,9 +40,6 @@ jobs:
         fi
         echo "✅ Binary found at: $FINAL_PATH"
 
-    # ----------------------------------------------------
-    # 日志和上传步骤
-    # ----------------------------------------------------
     - name: Summarize and Highlight Errors (Automated Analysis)
       if: failure()
       run: |
