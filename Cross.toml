@@ -1,4 +1,4 @@
 [target.aarch64-linux-android]
-# 最终稳定的镜像：明确指定 GHCR 源和 NDK r25c 标签。
-# 这解决了 'pull access denied' 和 'manifest unknown' 的问题。
-image = "ghcr.io/cross-rs/aarch64-linux-android:ndk-r25c"
+# 最终解决镜像问题：
+# 移除 'image' 字段，让 'cross' 工具自动使用其默认且稳定的镜像路径和标签。
+# 默认路径为：ghcr.io/cross-rs/aarch64-linux-android
