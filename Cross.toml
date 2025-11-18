@@ -1,3 +1,4 @@
 [target.aarch64-linux-android]
-# 终极修复：使用最通用的官方 `:latest` 标签，避免所有 'manifest unknown' 错误。
-image = "ghcr.io/cross-rs/aarch64-linux-android:latest"
+# 最终修复：放弃不稳定的 ':latest' 标签，使用官方维护的稳定标签 'ndk-r25c'。
+# 此标签能保证 Docker 容器内 NDK 工具链的完整性，彻底解决 'cannot find -lunwind' 链接错误。
+image = "ghcr.io/cross-rs/aarch64-linux-android:ndk-r25c"
