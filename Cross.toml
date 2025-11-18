@@ -1,4 +1,4 @@
 [target.aarch64-linux-android]
-# 终极修复：使用 cross-rs 官方推荐的 GHCR 源，并使用最不容易出现 manifest unknown 错误的 ':latest' 标签。
-# 之前的链接器问题已通过 Cargo.toml 修复，这应该能解决拉取问题。
-image = "ghcr.io/cross-rs/aarch64-linux-android:latest"
+# 最终稳定的镜像：明确指定 GHCR 源和 NDK r25c 标签。
+# 这解决了 'pull access denied' 和 'manifest unknown' 的问题。
+image = "ghcr.io/cross-rs/aarch64-linux-android:ndk-r25c"

@@ -6,19 +6,18 @@ edition = "2021"
 [dependencies]
 # 异步运行时
 tokio = { version = "1.35", features = ["full"] } 
-
 # API 框架
 axum = "0.7"
 # 数据序列化/反序列化
 serde = { version = "1.0", features = ["derive"] }
 
-# SQLite 数据库驱动
-# 终极修复：启用 'bundled' 功能，强制 rusqlite 静态编译 SQLite 库，消除对 Docker 容器内系统库的依赖。
+# 🚨 关键修复：必须使用 "bundled" feature 
+# 这会强制 rusqlite 编译自己的静态 SQLite 库，从而避免依赖 Android NDK 的系统库，
+# 彻底解决 'cannot find -lunwind' 链接错误。
 rusqlite = { version = "0.30", features = ["bundled"] } 
 
 # CLI 命令行解析
 clap = { version = "4.4", features = ["derive"] }
-
 # 终端输出增强
 colored = "2.0" 
 
@@ -32,3 +31,5 @@ opt-level = "z"
 lto = true
 codegen-units = 1
 strip = "symbols"
+
+# 关键：请确保您已移除之前尝试添加的 [target.aarch64-linux-android] 区块
