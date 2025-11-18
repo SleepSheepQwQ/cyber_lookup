@@ -1,4 +1,4 @@
-// src/main.rs
+// src/main.rs (完整修复版)
 // --- 模块和依赖导入 ---
 use axum::{
     routing::get,
@@ -134,32 +134,52 @@ fn lookup_data(conn: &Connection, id: &str) -> SqlResult<LookupResponse> {
     })
 }
 
-// --- 数据库索引检查 (正反馈) ---
+// --- 数据库索引检查 (正反馈 - 改进版) ---
 
 fn check_db_indices(conn: &Connection) -> bool {
-    // 这是一个简化的检查逻辑，通过尝试查找任何 index name 包含 key 的字符串
-    let check_index = |conn: &Connection, key: &str| -> bool {
-        let mut stmt = match conn.prepare("PRAGMA index_list(user_mapping)") {
+    // 检查给定列名是否在 user_mapping 表的某个索引中
+    let check_column_indexed = |conn: &Connection, column_name: &str| -> bool {
+        let mut stmt_index_list = match conn.prepare("PRAGMA index_list(user_mapping)") {
             Ok(s) => s,
             Err(_) => return false,
         };
-        let mut rows = match stmt.query([]) {
+        
+        let mut rows_index_list = match stmt_index_list.query([]) {
             Ok(r) => r,
             Err(_) => return false,
         };
         
-        while let Ok(Some(row)) = rows.next() {
-            if let Ok(name) = row.get::<_, String>(1) {
-                if name.contains(key) {
-                    return true;
+        while let Ok(Some(row_index)) = rows_index_list.next() {
+            // 获取索引名称 (在第 1 列)
+            if let Ok(index_name) = row_index.get::<_, String>(1) {
+                
+                // 检查索引的列信息
+                let mut col_stmt = match conn.prepare(&format!("PRAGMA index_info({})", index_name)) {
+                    Ok(s) => s,
+                    Err(_) => continue,
+                };
+                
+                let mut col_rows = match col_stmt.query([]) {
+                    Ok(r) => r,
+                    Err(_) => continue,
+                };
+                
+                while let Ok(Some(col_row)) = col_rows.next() {
+                    // 索引的列名在第 2 列 (name)
+                    if let Ok(col_name) = col_row.get::<_, String>(2) { 
+                        if col_name == column_name {
+                            // 找到了基于正确列名的索引
+                            return true;
+                        }
+                    }
                 }
             }
         }
         false
     };
 
-    let uid_indexed = check_index(conn, "uid");
-    let phone_indexed = check_index(conn, "phone");
+    let uid_indexed = check_column_indexed(conn, "uid");
+    let phone_indexed = check_column_indexed(conn, "phone_number");
     
     if uid_indexed && phone_indexed {
         println!("{} Database indices confirmed (uid, phone_number). Query performance OK.", "INDEX OK".green().bold());
@@ -190,8 +210,9 @@ async fn api_lookup(
 
     let status = match response.status.as_str() {
         "not_found" => {
+            // 修复 1: 修正状态码拼写错误
             println!("{} Lookup ID: {} -> NOT FOUND (404)", "API REQ".red(), id);
-            StatusCode::NOT_NOT_FOUND
+            StatusCode::NOT_FOUND 
         },
         _ => {
             println!("{} Lookup ID: {} -> FOUND ({})", "API REQ".green(), id, response.status.green());
@@ -232,18 +253,22 @@ async fn api_status(
 
     let (exists, id) = response;
     
-    // 修复 E0382: 在 id 被 move 进 status_response 之前，克隆一份用于打印日志
-    let id_for_log = id.clone(); 
+    // 改进 3: 如果未找到，返回 404
+    let status = if exists {
+        println!("{} Status ID: {} -> Exists: {}", "API REQ".cyan(), &id, exists.to_string().cyan());
+        StatusCode::OK
+    } else {
+        println!("{} Status ID: {} -> NOT FOUND (404)", "API REQ".red(), &id);
+        StatusCode::NOT_FOUND
+    };
 
     let status_response = StatusResponse {
         status: if exists { "found" } else { "not_found" }.to_string(),
-        id: id, // id的所有权在这里被转移
+        id: id,
         exists: exists,
     };
     
-    // 使用克隆的 id 进行打印
-    println!("{} Status ID: {} -> Exists: {}", "API REQ".cyan(), id_for_log, exists.to_string().cyan());
-    Ok((StatusCode::OK, Json(status_response)))
+    Ok((status, Json(status_response)))
 }
 
 // --- CLI 命令行接口 ---
@@ -301,19 +326,34 @@ fn run_manage_shell(state: Arc<AppState>) {
             "status" if parts.len() == 2 => {
                 handle_cli_status(&state, parts[1]);
             }
+            // 修复 2: 修正 db-switch 逻辑
             "db-switch" if parts.len() == 2 => {
                 let new_path = parts[1].to_string();
-                if let Ok(conn) = Connection::open(&new_path) {
-                    // 检查文件是否存在或至少包含 user_mapping 表
-                    if conn.query_row("SELECT 1 FROM user_mapping LIMIT 1", [], |_| Ok(1)).is_ok() || !FilePath::new(&new_path).exists() {
-                        state.set_db_path(new_path.clone());
-                        println!("{} 成功将数据库切换到: {}", "SUCCESS".green().bold(), new_path.cyan());
-                        println!("{} 温馨提示: API 服务器需要重启才能加载新的数据库路径。", "INFO".yellow());
-                    } else {
-                        println!("{} 错误: 文件 '{}' 看起来不是有效的 SQLite 数据库 (缺少 user_mapping 表)。", "ERROR".red().bold(), new_path);
+                let new_file_path = FilePath::new(&new_path);
+                
+                // 1. 检查文件是否已存在
+                if new_file_path.exists() {
+                    // 2. 如果存在，尝试打开并检查 user_mapping 表
+                    match Connection::open(&new_path) {
+                        Ok(conn) => {
+                            // 检查 user_mapping 表是否存在
+                            if conn.query_row("SELECT name FROM sqlite_master WHERE type='table' AND name='user_mapping'", [], |_| Ok(1)).is_ok() {
+                                state.set_db_path(new_path.clone());
+                                println!("{} 成功将数据库切换到: {}", "SUCCESS".green().bold(), new_path.cyan());
+                                println!("{} 温馨提示: API 服务器需要重启才能加载新的数据库路径。", "INFO".yellow());
+                            } else {
+                                println!("{} 错误: 文件 '{}' 看起来不是有效的查找数据库 (缺少 user_mapping 表)。", "ERROR".red().bold(), new_path);
+                            }
+                        },
+                        Err(e) => {
+                            println!("{} 错误: 无法打开文件 '{}'。错误: {}", "ERROR".red().bold(), new_path, e);
+                        }
                     }
                 } else {
-                    println!("{} 错误: 无法打开文件 '{}'。请检查路径和权限。", "ERROR".red().bold(), new_path);
+                    // 3. 文件不存在，允许切换 (将在程序下次启动时创建)
+                    state.set_db_path(new_path.clone());
+                    println!("{} 成功将数据库切换到: {}", "SUCCESS".green().bold(), new_path.cyan());
+                    println!("{} 警告: 文件 '{}' 不存在，它将在 API 启动时被创建。", "WARNING".yellow().bold(), new_path.yellow());
                 }
             }
             "db-current" => {
@@ -425,7 +465,7 @@ fn load_config() -> ServerConfig {
 
     // 1. 尝试读取配置
     if config_path.exists() {
-        // 修复 E0599
+        // 修复 E0599: .display() 后 .to_string()
         println!("{} Found config file at: {}", "CONFIG".green().bold(), config_path.display().to_string().cyan());
         let content = fs::read_to_string(&config_path).unwrap_or_default();
         let mut loaded_config = default_config;
@@ -462,7 +502,7 @@ fn load_config() -> ServerConfig {
         if let Err(e) = fs::write(&config_path, default_content) {
             eprintln!("{} Failed to write default config file. Error: {}", "FATAL ERROR".red().bold(), e);
         } else {
-            // 修复 E0599
+            // 修复 E0599: .display() 后 .to_string()
             println!("{} Created default config file at: {}", "CONFIG".green().bold(), config_path.display().to_string().cyan());
             println!("{} Please modify {} to customize settings.", "CONFIG".yellow(), DEFAULT_CONFIG_FILE);
         }
@@ -521,7 +561,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     println!("{} Database connection established: {}", "DB CONNECT".green().bold(), db_path_final.cyan());
 
-    // 5. 检查索引 (正反馈)
+    // 5. 检查索引 (正反馈 - 使用改进版)
     check_db_indices(&conn);
     drop(conn); // 释放连接
 
