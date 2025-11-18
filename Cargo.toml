@@ -13,7 +13,7 @@ axum = "0.7"
 serde = { version = "1.0", features = ["derive"] }
 
 # SQLite 数据库驱动
-# 终极修复：启用 'bundled' 功能，静态编译 SQLite 库，解决交叉编译链接错误。
+# 终极修复：启用 'bundled' 功能，强制 rusqlite 静态编译 SQLite 库，消除对 Docker 容器内系统库的依赖。
 rusqlite = { version = "0.30", features = ["bundled"] } 
 
 # CLI 命令行解析

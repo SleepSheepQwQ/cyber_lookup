@@ -1,4 +1,4 @@
-name: "CI/CD: AArch64 Cross Build (Final)"
+name: "CI/CD: AArch64 Cross Build (Final & Cached)"
 
 on:
   push:
@@ -13,20 +13,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      # ----------------------------------------------------
+      # 步骤 1: 缓存 Cargo/Cross 依赖 (解决下载繁琐)
+      # ----------------------------------------------------
+      - name: "Cache Cargo/Cross Dependencies"
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cross
+            target/aarch64-linux-android/release/
+            target/debug/
+          # 使用 Cargo.lock 文件内容作为 key 的哈希值，确保依赖更新时缓存失效
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
       - name: "Install Rust Toolchain"
-        # 步骤 1: 安装 stable Rust 和 aarch64-linux-android 目标
         uses: dtolnay/rust-toolchain@stable
         with: {targets: aarch64-linux-android}
         
-      - name: "Install Cross Tool"
-        # 步骤 2: 解决 'cross: command not found' 错误
+      - name: "Install Cross Tool (If Not Cached)"
+        # 解决 'cross: command not found' 错误
         run: cargo install cross --git https://github.com/cross-rs/cross
 
       - name: "Clean and Build Binary"
-        # 步骤 3: 核心构建命令
+        # 核心构建命令
         run: cross build --release --target aarch64-linux-android
         
       - name: "Upload Artifact"
-        # 步骤 4: 上传成功编译的二进制文件
+        # 上传成功编译的二进制文件
         uses: actions/upload-artifact@v4
         with: {name: cyber_lookup_aarch64, path: target/aarch64-linux-android/release/cyber_lookup, retention-days: 7}
