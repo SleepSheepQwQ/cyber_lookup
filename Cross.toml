@@ -1,5 +1,4 @@
 [target.aarch64-linux-android]
-# 最终修复：移除所有注册表前缀 (ghcr.io/ 或 docker.io/)，
-# 仅保留镜像名称和标签。这强制 Docker 使用其默认的 Docker Hub 查找逻辑，
-# 彻底解决 'manifest unknown' 错误。
-image = "aarch64-linux-android:ndk-r25c"
+# 终极修复：使用 cross-rs 官方推荐的 GHCR 源，并使用最不容易出现 manifest unknown 错误的 ':latest' 标签。
+# 之前的链接器问题已通过 Cargo.toml 修复，这应该能解决拉取问题。
+image = "ghcr.io/cross-rs/aarch64-linux-android:latest"
