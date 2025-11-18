@@ -9,17 +9,20 @@ use axum::{
 };
 use serde::{Serialize};
 use rusqlite::{Connection, Result as SqlResult, Error as SqlError};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex}; // 用于运行时可变的数据库路径
 use clap::{Parser, Subcommand};
 use colored::{Colorize};
 use std::net::SocketAddr;
 use std::io::{self, Write};
+use std::path::Path as FilePath; // 用于路径操作
+use std::fs; // 用于文件/目录操作
 use tokio::task;
 
-// 默认数据库文件路径
-const DEFAULT_DATABASE_FILE: &str = "uid_phone_map.db";
+// 默认配置 (仅用于创建 config.txt 时写入的默认值)
+const DEFAULT_DATA_DIR: &str = "data";
+const DEFAULT_CONFIG_FILE: &str = "config.txt";
 
-// --- 自定义错误类型 ---
+// --- 错误处理 ---
 
 #[derive(Debug)]
 enum AppError {
@@ -29,7 +32,7 @@ enum AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
-        eprintln!("Application Error: {:?}", self);
+        eprintln!("{} Application Error: {:?}", "FATAL ERROR".red().bold(), self);
         let (status, body) = match self {
             AppError::DbError(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -50,23 +53,41 @@ impl From<SqlError> for AppError {
     }
 }
 
-// --- 数据库状态管理 ---
+// 运行时配置结构体
+struct ServerConfig {
+    db_path: String,
+    bind_address: String,
+}
+
+// --- 数据库状态管理 (支持运行时切换) ---
 
 struct AppState {
-    db_path: String,
+    db_path: Mutex<String>,
 }
 
 impl AppState {
     fn new(db_path: String) -> Self {
-        AppState { db_path }
+        AppState { db_path: Mutex::new(db_path) }
     }
 
     fn get_db_connection(&self) -> SqlResult<Connection> {
-        Connection::open(&self.db_path)
+        let path = self.db_path.lock().unwrap();
+        Connection::open(&*path)
+    }
+    
+    // 供 Manage 终端动态切换路径
+    fn set_db_path(&self, new_path: String) {
+        let mut path = self.db_path.lock().unwrap();
+        *path = new_path;
+    }
+    
+    // 获取当前路径
+    fn current_db_path(&self) -> String {
+        self.db_path.lock().unwrap().clone()
     }
 }
 
-// --- API 响应结构体 ---
+// --- API 响应结构体 (保持不变) ---
 
 #[derive(Serialize)]
 struct LookupResponse {
@@ -82,7 +103,7 @@ struct StatusResponse {
     exists: bool,
 }
 
-// --- 数据库操作函数 ---
+// --- 数据库查询核心逻辑 ---
 
 fn lookup_data(conn: &Connection, id: &str) -> SqlResult<LookupResponse> {
     // 尝试按 UID 查找
@@ -113,7 +134,45 @@ fn lookup_data(conn: &Connection, id: &str) -> SqlResult<LookupResponse> {
     })
 }
 
-// --- API 路由处理函数 ---
+// --- 数据库索引检查 (正反馈) ---
+
+fn check_db_indices(conn: &Connection) -> bool {
+    // 这是一个简化的检查逻辑，通过尝试查找任何 index name 包含 key 的字符串
+    let check_index = |conn: &Connection, key: &str| -> bool {
+        let mut stmt = match conn.prepare("PRAGMA index_list(user_mapping)") {
+            Ok(s) => s,
+            Err(_) => return false,
+        };
+        let mut rows = match stmt.query([]) {
+            Ok(r) => r,
+            Err(_) => return false,
+        };
+        
+        while let Ok(Some(row)) = rows.next() {
+            if let Ok(name) = row.get::<_, String>(1) {
+                if name.contains(key) {
+                    return true;
+                }
+            }
+        }
+        false
+    };
+
+    let uid_indexed = check_index(conn, "uid");
+    let phone_indexed = check_index(conn, "phone");
+    
+    if uid_indexed && phone_indexed {
+        println!("{} Database indices confirmed (uid, phone_number). Query performance OK.", "INDEX OK".green().bold());
+        true
+    } else {
+        println!("{} WARNING: Missing critical indices!", "INDEX WARNING".yellow().bold());
+        println!("{}", "Hint: Create indices on `uid` and `phone_number` columns for performance.".yellow());
+        false
+    }
+}
+
+
+// --- API 路由处理函数 (增强日志) ---
 
 async fn api_lookup(
     Path(id): Path<String>,
@@ -121,7 +180,6 @@ async fn api_lookup(
 ) -> Result<impl IntoResponse, AppError> {
     
     let id_clone = id.clone(); 
-
     let response = task::spawn_blocking(move || {
         let conn = state.get_db_connection()?;
         lookup_data(&conn, &id_clone)
@@ -131,8 +189,14 @@ async fn api_lookup(
     .map_err(AppError::DbError)?;              
 
     let status = match response.status.as_str() {
-        "not_found" => StatusCode::NOT_FOUND,
-        _ => StatusCode::OK,
+        "not_found" => {
+            println!("{} Lookup ID: {} -> NOT FOUND (404)", "API REQ".red(), id);
+            StatusCode::NOT_FOUND
+        },
+        _ => {
+            println!("{} Lookup ID: {} -> FOUND ({})", "API REQ".green(), id, response.status.green());
+            StatusCode::OK
+        },
     };
     
     Ok((status, Json(response)))
@@ -174,6 +238,7 @@ async fn api_status(
         exists: exists,
     };
     
+    println!("{} Status ID: {} -> Exists: {}", "API REQ".cyan(), id, exists.to_string().cyan());
     Ok((StatusCode::OK, Json(status_response)))
 }
 
@@ -182,8 +247,9 @@ async fn api_status(
 #[derive(Parser)]
 #[command(author, version, about = "Cyber Lookup Service CLI & API Server")]
 struct Cli {
-    #[arg(short, long, default_value = DEFAULT_DATABASE_FILE)]
-    db_path: String,
+    /// 覆盖配置文件中的数据库路径
+    #[arg(short, long)] 
+    db_path: Option<String>,
     
     #[command(subcommand)]
     command: Commands,
@@ -193,21 +259,22 @@ struct Cli {
 enum Commands {
     /// 启动 API 服务器
     Serve {
-        #[arg(short, long, default_value = "127.0.0.1:5000")]
-        bind: String,
+        /// 覆盖配置文件中的绑定地址
+        #[arg(short, long)]
+        bind: Option<String>,
     },
-    /// 终端交互查询
-    Termux,
+    /// 启动管理终端，进行配置修改和查询 (中途反悔/更改的入口)
+    Manage, 
 }
 
-// 终端交互函数
-fn run_cli(state: Arc<AppState>) {
-    println!("{}", "--- CYBER LOOKUP V0.1 ---".green().bold());
-    println!("{}", "Enter 'lookup <ID>' or 'status <ID>' or 'exit'".cyan());
-    println!("{}", format!("DB Path: {}", state.db_path).yellow());
-
+// 终端管理函数 (run_manage_shell)
+fn run_manage_shell(state: Arc<AppState>) {
+    println!("{}", "--- CYBER LOOKUP MANAGEMENT SHELL V0.1 ---".green().bold());
+    println!("{}", "输入 'help' 获取命令列表".cyan());
+    
     loop {
-        print!("{}", "[CYBER-LOOKUP]$ ".yellow());
+        let current_db = state.current_db_path();
+        print!("{}", format!("[MANAGE:{}]> ", FilePath::new(&current_db).file_name().unwrap_or_default().to_string_lossy()).yellow());
         io::stdout().flush().unwrap();
         
         let mut input = String::new();
@@ -220,7 +287,7 @@ fn run_cli(state: Arc<AppState>) {
 
         match parts[0].to_lowercase().as_str() {
             "exit" => {
-                println!("{}", "Shutting down...".red());
+                println!("{}", "退出管理终端...".red());
                 break;
             }
             "lookup" if parts.len() == 2 => {
@@ -229,13 +296,40 @@ fn run_cli(state: Arc<AppState>) {
             "status" if parts.len() == 2 => {
                 handle_cli_status(&state, parts[1]);
             }
+            "db-switch" if parts.len() == 2 => {
+                let new_path = parts[1].to_string();
+                if let Ok(conn) = Connection::open(&new_path) {
+                    if conn.query_row("SELECT 1 FROM user_mapping LIMIT 1", [], |_| Ok(1)).is_ok() || !FilePath::new(&new_path).exists() {
+                        state.set_db_path(new_path.clone());
+                        println!("{} 成功将数据库切换到: {}", "SUCCESS".green().bold(), new_path.cyan());
+                        println!("{} 温馨提示: API 服务器需要重启才能加载新的数据库路径。", "INFO".yellow());
+                    } else {
+                        println!("{} 错误: 文件 '{}' 看起来不是有效的 SQLite 数据库 (缺少 user_mapping 表)。", "ERROR".red().bold(), new_path);
+                    }
+                } else {
+                    println!("{} 错误: 无法打开文件 '{}'。请检查路径和权限。", "ERROR".red().bold(), new_path);
+                }
+            }
+            "db-current" => {
+                println!("{} 当前数据库路径: {}", "INFO".cyan().bold(), state.current_db_path().cyan());
+                println!("{} 提示: 使用 'db-switch <新路径>' 进行更改。", "INFO".yellow());
+            }
+            "help" => {
+                println!("{}", "--- 命令列表 ---".green().bold());
+                println!("{}", "lookup <ID>       : 通过 ID/手机号查询数据并返回结果。".cyan());
+                println!("{}", "status <ID>       : 检查 ID/手机号是否存在于数据库。".cyan());
+                println!("{}", "db-switch <路径>  : 动态切换当前会话的数据库文件路径 (API 重启生效)。".cyan());
+                println!("{}", "db-current        : 显示当前使用的数据库路径。".cyan());
+                println!("{}", "exit              : 退出管理终端。".cyan());
+            }
             _ => {
-                println!("{}", "Error: Invalid command. Use 'lookup <ID>' or 'status <ID>'.".red());
+                println!("{}", "Error: 无效命令。输入 'help' 查看命令列表。".red());
             }
         }
     }
 }
 
+// CLI lookup/status helpers (带日志)
 fn handle_cli_lookup(state: &Arc<AppState>, id: &str) {
     let conn = match state.get_db_connection() {
         Ok(c) => c,
@@ -246,13 +340,13 @@ fn handle_cli_lookup(state: &Arc<AppState>, id: &str) {
         Ok(resp) => {
             match resp.status.as_str() {
                 "found_by_uid" => {
-                    println!("{} UID: {} -> PHONE: {}", "FOUND BY UID".green().bold(), resp.uid.unwrap(), resp.phone_number.unwrap());
+                    println!("{} UID: {} -> PHONE: {}", "CLI LOOKUP".green().bold(), resp.uid.unwrap().cyan(), resp.phone_number.unwrap().cyan());
                 }
                 "found_by_phone" => {
-                    println!("{} PHONE: {} -> UID: {}", "FOUND BY PHONE".green().bold(), resp.phone_number.unwrap(), resp.uid.unwrap());
+                    println!("{} PHONE: {} -> UID: {}", "CLI LOOKUP".green().bold(), resp.phone_number.unwrap().cyan(), resp.uid.unwrap().cyan());
                 }
                 "not_found" => {
-                    println!("{} ID: {} not found.", "NOT FOUND".red().bold(), id);
+                    println!("{} ID: {} not found.", "CLI LOOKUP".red().bold(), id.red());
                 }
                 _ => (),
             }
@@ -275,12 +369,96 @@ fn handle_cli_status(state: &Arc<AppState>, id: &str) {
 
     if let Ok(count) = result {
         if count > 0 {
-            println!("{} ID: {} -> {}", "STATUS OK".green().bold(), id, "数据库里有他 (Found)".green());
+            println!("{} ID: {} -> {}", "CLI STATUS".green().bold(), id.cyan(), "数据库里有他 (Found)".green());
         } else {
-            println!("{} ID: {} -> {}", "STATUS FAIL".red().bold(), id, "数据库里没有他 (Not Found)".red());
+            println!("{} ID: {} -> {}", "CLI STATUS".red().bold(), id.red(), "数据库里没有他 (Not Found)".red());
         }
     } else {
          println!("{} Query Error for status check.", "ERROR".red().bold());
+    }
+}
+
+
+// --- 核心交互式输入函数 (保持不变) ---
+
+fn prompt_for_input(prompt: &str, default_value: &str, is_valid: impl Fn(&str) -> bool) -> String {
+    loop {
+        print!("{}", format!("{} (Default: {}): ", prompt, default_value).yellow());
+        io::stdout().flush().unwrap();
+        
+        let mut input = String::new();
+        if io::stdin().read_line(&mut input).is_err() {
+            println!(); 
+            return default_value.to_string();
+        }
+
+        let value = input.trim();
+
+        if value.is_empty() {
+            return default_value.to_string();
+        }
+        
+        if is_valid(value) {
+            return value.to_string();
+        }
+        
+        println!("{}", "Error: Invalid format or path. Please try again.".red());
+    }
+}
+
+
+// --- 配置加载函数 (读取/创建 config.txt) ---
+
+fn load_config() -> ServerConfig {
+    let default_config = ServerConfig {
+        db_path: format!("{}/uid_phone_map.db", DEFAULT_DATA_DIR),
+        bind_address: "127.0.0.1:3000".to_string(),
+    };
+
+    let config_path = FilePath::new(DEFAULT_DATA_DIR).join(DEFAULT_CONFIG_FILE);
+
+    // 1. 尝试读取配置
+    if config_path.exists() {
+        println!("{} Found config file at: {}", "CONFIG".green().bold(), config_path.display().cyan());
+        let content = fs::read_to_string(&config_path).unwrap_or_default();
+        let mut loaded_config = default_config;
+
+        for line in content.lines() {
+            if let Some((key, value)) = line.split_once('=') {
+                let key = key.trim();
+                let value = value.trim();
+                
+                match key {
+                    "db_path" => {
+                        loaded_config.db_path = value.to_string();
+                    },
+                    "bind_address" => {
+                        loaded_config.bind_address = value.to_string();
+                    },
+                    _ => {}
+                }
+            }
+        }
+        
+        println!("{} Config parameters loaded.", "CONFIG".green().bold());
+        return loaded_config;
+        
+    } else {
+        // 2. 如果不存在，则创建默认配置文件并返回默认配置
+        println!("{} Config file not found.", "CONFIG".yellow().bold());
+        let default_content = format!(
+            "db_path = {}\nbind_address = {}\n",
+            default_config.db_path,
+            default_config.bind_address
+        );
+
+        if let Err(e) = fs::write(&config_path, default_content) {
+            eprintln!("{} Failed to write default config file. Error: {}", "FATAL ERROR".red().bold(), e);
+        } else {
+            println!("{} Created default config file at: {}", "CONFIG".green().bold(), config_path.display().cyan());
+            println!("{} Please modify {} to customize settings.", "CONFIG".yellow(), DEFAULT_CONFIG_FILE);
+        }
+        return default_config;
     }
 }
 
@@ -289,28 +467,97 @@ fn handle_cli_status(state: &Arc<AppState>, id: &str) {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    
+    // 0. 初始化：创建 data/ 目录 (正反馈)
+    let dir_path = FilePath::new(DEFAULT_DATA_DIR);
+    if !dir_path.exists() {
+        println!("{} Creating data directory: {}", "INIT".yellow().bold(), DEFAULT_DATA_DIR);
+        if let Err(e) = fs::create_dir_all(dir_path) {
+            eprintln!("\n{} Failed to create data directory. Error: {}", "FATAL ERROR".red().bold(), e);
+            eprintln!("{}", "Please check Termux file permissions (termux-setup-storage).".red());
+            return Ok(());
+        }
+    } else {
+         println!("{} Data directory found.", "INIT".green().bold());
+    }
+
+    // 1. 加载配置
+    let initial_config = load_config();
+    
+    // 2. 解析 CLI 参数 (CLI 优先级最高)
     let cli = Cli::parse();
     
-    let db_path = cli.db_path;
-    let state = Arc::new(AppState::new(db_path.clone()));
+    // 3. 确定最终的 db_path (优先级：CLI > 交互 > Config)
+    let config_db_path = cli.db_path.as_ref().unwrap_or(&initial_config.db_path);
+    let db_path_final = prompt_for_input(
+        "Database file path", 
+        config_db_path, 
+        |p| !p.is_empty()
+    );
+    
+    let state = Arc::new(AppState::new(db_path_final.clone()));
+
+    // 4. 检查数据库连接 (正反馈)
+    if !FilePath::new(&db_path_final).exists() {
+        println!("{}", format!("\n{} WARNING: Database file not found at '{}'.", "DB WARNING".yellow().bold(), db_path_final).yellow());
+        println!("{}", "The program will create an empty file. Ensure your data is in place.".yellow());
+    }
+    
+    let conn = match state.get_db_connection() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("\n{} FATAL: Cannot open/create database at '{}'. Error: {}", "DB FATAL".red().bold(), db_path_final, e);
+            eprintln!("{}", "Check path, permissions, and database file integrity.".red());
+            return Ok(());
+        }
+    };
+    println!("{} Database connection established: {}", "DB CONNECT".green().bold(), db_path_final.cyan());
+
+    // 5. 检查索引 (正反馈)
+    check_db_indices(&conn);
+    drop(conn); // 释放连接
 
     match cli.command {
         Commands::Serve { bind } => {
-            println!("{}", format!("Starting API server on http://{}", bind).green().bold());
-            println!("{}", format!("Using Database: {}", db_path).cyan());
             
+            // 6. 确定最终的 bind 地址 (优先级：CLI > 交互 > Config)
+            let config_bind_addr = bind.as_ref().unwrap_or(&initial_config.bind_address);
+            let bind_addr = prompt_for_input(
+                "Bind Address (IP:PORT)", 
+                config_bind_addr, 
+                |a| a.parse::<SocketAddr>().is_ok()
+            );
+
+            let addr: SocketAddr = bind_addr.parse()?; 
+            
+            // 7. 绑定端口 (正反馈)
+            let listener = match tokio::net::TcpListener::bind(addr).await {
+                Ok(l) => {
+                    println!("{} Successfully bound to address: {}", "NETWORK OK".green().bold(), bind_addr.cyan());
+                    l
+                },
+                Err(e) => {
+                    eprintln!("{} Failed to bind to {}. Error: {}", "NETWORK FATAL".red().bold(), bind_addr, e);
+                    eprintln!("{}", "Hint: Address might be in use or you lack permission (e.g., binding to a privileged port <1024).".red());
+                    return Ok(());
+                }
+            };
+
+            println!("{}", format!("\n--- API SERVER STARTED ---").green().bold());
+            println!("{} API Access URL: {}", "SERVER INFO".green().bold(), format!("http://{}", bind_addr).cyan());
+            println!("{} To stop the service, press {}", "SERVER INFO".yellow(), "Ctrl+C".bold());
+            println!("--------------------------\n");
+
             let app = Router::new()
                 .route("/lookup/:id", get(api_lookup))
                 .route("/status/:id", get(api_status))
                 .with_state(state);
 
-            let addr: SocketAddr = bind.parse()?; 
-            
-            let listener = tokio::net::TcpListener::bind(addr).await?; 
             axum::serve(listener, app).await?; 
         }
-        Commands::Termux => {
-            run_cli(state);
+        Commands::Manage => {
+            // 启动管理终端，允许在运行时更改 DB 路径
+            run_manage_shell(state);
         }
     }
     
