@@ -9,7 +9,7 @@ use axum::{
 };
 use serde::{Serialize};
 use rusqlite::{Connection, Result as SqlResult, Error as SqlError};
-use std::sync::{Arc, Mutex}; // 用于运行时可变的数据库路径
+use std::sync::{Arc, Mutex};
 use clap::{Parser, Subcommand};
 use colored::{Colorize};
 use std::net::SocketAddr;
@@ -191,7 +191,7 @@ async fn api_lookup(
     let status = match response.status.as_str() {
         "not_found" => {
             println!("{} Lookup ID: {} -> NOT FOUND (404)", "API REQ".red(), id);
-            StatusCode::NOT_FOUND
+            StatusCode::NOT_NOT_FOUND
         },
         _ => {
             println!("{} Lookup ID: {} -> FOUND ({})", "API REQ".green(), id, response.status.green());
@@ -231,14 +231,18 @@ async fn api_status(
     .map_err(AppError::DbError)?;
 
     let (exists, id) = response;
+    
+    // 修复 E0382: 在 id 被 move 进 status_response 之前，克隆一份用于打印日志
+    let id_for_log = id.clone(); 
 
     let status_response = StatusResponse {
         status: if exists { "found" } else { "not_found" }.to_string(),
-        id: id,
+        id: id, // id的所有权在这里被转移
         exists: exists,
     };
     
-    println!("{} Status ID: {} -> Exists: {}", "API REQ".cyan(), id, exists.to_string().cyan());
+    // 使用克隆的 id 进行打印
+    println!("{} Status ID: {} -> Exists: {}", "API REQ".cyan(), id_for_log, exists.to_string().cyan());
     Ok((StatusCode::OK, Json(status_response)))
 }
 
@@ -274,7 +278,8 @@ fn run_manage_shell(state: Arc<AppState>) {
     
     loop {
         let current_db = state.current_db_path();
-        print!("{}", format!("[MANAGE:{}]> ", FilePath::new(&current_db).file_name().unwrap_or_default().to_string_lossy()).yellow());
+        // 仅显示文件名，简化提示
+        print!("{}", format!("[MANAGE:{}]> ", FilePath::new(&current_db).file_name().unwrap_or_default().to_string_lossy()).yellow()); 
         io::stdout().flush().unwrap();
         
         let mut input = String::new();
@@ -299,6 +304,7 @@ fn run_manage_shell(state: Arc<AppState>) {
             "db-switch" if parts.len() == 2 => {
                 let new_path = parts[1].to_string();
                 if let Ok(conn) = Connection::open(&new_path) {
+                    // 检查文件是否存在或至少包含 user_mapping 表
                     if conn.query_row("SELECT 1 FROM user_mapping LIMIT 1", [], |_| Ok(1)).is_ok() || !FilePath::new(&new_path).exists() {
                         state.set_db_path(new_path.clone());
                         println!("{} 成功将数据库切换到: {}", "SUCCESS".green().bold(), new_path.cyan());
@@ -419,7 +425,8 @@ fn load_config() -> ServerConfig {
 
     // 1. 尝试读取配置
     if config_path.exists() {
-        println!("{} Found config file at: {}", "CONFIG".green().bold(), config_path.display().cyan());
+        // 修复 E0599
+        println!("{} Found config file at: {}", "CONFIG".green().bold(), config_path.display().to_string().cyan());
         let content = fs::read_to_string(&config_path).unwrap_or_default();
         let mut loaded_config = default_config;
 
@@ -455,7 +462,8 @@ fn load_config() -> ServerConfig {
         if let Err(e) = fs::write(&config_path, default_content) {
             eprintln!("{} Failed to write default config file. Error: {}", "FATAL ERROR".red().bold(), e);
         } else {
-            println!("{} Created default config file at: {}", "CONFIG".green().bold(), config_path.display().cyan());
+            // 修复 E0599
+            println!("{} Created default config file at: {}", "CONFIG".green().bold(), config_path.display().to_string().cyan());
             println!("{} Please modify {} to customize settings.", "CONFIG".yellow(), DEFAULT_CONFIG_FILE);
         }
         return default_config;
