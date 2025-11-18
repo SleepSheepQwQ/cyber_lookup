@@ -1,3 +1,3 @@
 [target.aarch64-linux-android]
-# 修正：将不稳定的 'latest-ndkr25' 标签更改为稳定且受支持的 Android NDK 29 版本镜像，解决 'manifest unknown' 错误。
-image = "ghcr.io/cross-rs/aarch64-linux-android:29"
+# 最终修正：使用官方的稳定 NDK 版本标签 'ndkr25'，这排除了所有导致 'manifest unknown' 的不稳定标签。
+image = "ghcr.io/cross-rs/aarch64-linux-android:ndkr25"
