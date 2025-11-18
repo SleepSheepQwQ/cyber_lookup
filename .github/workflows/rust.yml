@@ -35,14 +35,22 @@ jobs:
         with: {targets: aarch64-linux-android}
         
       - name: "Install Cross Tool (If Not Cached)"
-        # 解决 'cross: command not found' 错误
-        run: cargo install cross --git https://github.com/cross-rs/cross
+        # 🚨 关键修复: 加入 --force 解决与缓存的冲突，确保 cross 成功安装或更新。
+        run: cargo install cross --git https://github.com/cross-rs/cross --force
 
       - name: "Clean and Build Binary"
         # 核心构建命令
         run: cross build --release --target aarch64-linux-android
         
-      - name: "Upload Artifact"
-        # 上传成功编译的二进制文件
+      # ----------------------------------------------------
+      # 步骤 3: 打包并上传 Artifacts
+      # ----------------------------------------------------
+      - name: "Upload AArch64 Artifact"
         uses: actions/upload-artifact@v4
-        with: {name: cyber_lookup_aarch64, path: target/aarch64-linux-android/release/cyber_lookup, retention-days: 7}
+        with:
+          name: cyber_lookup_aarch64
+          # 构建产物路径
+          path: target/aarch64-linux-android/release/cyber_lookup
+          # 确保 Artifacts 在工作流结束后保留，以便下载
+          retention-days: 7 
+
