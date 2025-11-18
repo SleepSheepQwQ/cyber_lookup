@@ -1,0 +1,8 @@
+[target.aarch64-linux-android]
+# 明确指定一个基于 NDK r25 的稳定 cross 镜像。
+# 确保 cross 容器使用已知且兼容的 Android 工具链。
+image = "ghcr.io/cross-rs/aarch64-linux-android:latest-ndkr25"
+
+# 默认情况下，cross 使用 Android API Level 21 (Android 5.0)。
+# 现代应用通常从 24 或 26 开始。我们强制使用 24，以获得更好的兼容性。
+# 备注：您不需要在 Cargo.toml 中设置 target 链接标志。cross 容器会处理。
