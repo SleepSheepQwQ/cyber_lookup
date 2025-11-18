@@ -1,4 +1,5 @@
 [target.aarch64-linux-android]
-# 最终修复：放弃不稳定的 GHCR 源 (ghcr.io)，切换到更可靠的 Docker Hub 源 (docker.io)。
-# 同时锁定一个完整的 NDK 标签 'ndk-r25c'，彻底解决 'manifest unknown' 和 'lunwind' 链接错误。
-image = "docker.io/cross-rs/aarch64-linux-android:ndk-r25c"
+# 最终修复：移除所有注册表前缀 (ghcr.io/ 或 docker.io/)，
+# 仅保留镜像名称和标签。这强制 Docker 使用其默认的 Docker Hub 查找逻辑，
+# 彻底解决 'manifest unknown' 错误。
+image = "aarch64-linux-android:ndk-r25c"
