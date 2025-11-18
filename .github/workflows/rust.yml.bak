@@ -55,13 +55,11 @@ jobs:
         echo "--- 🚨 交叉编译错误摘要 🚨 ---" >> $GITHUB_STEP_SUMMARY
         echo "## 重点错误提炼" >> $GITHUB_STEP_SUMMARY
         
-        grep -E 'error:|note:|failed:|cannot find|undefined reference|linker|collect2|aarch64-linux-android' build_log.txt \
-        | head -n 50 \
-        | sed 's/^/- /' \
-        >> $GITHUB_STEP_SUMMARY
+        grep -E 'error:|note:|failed:|cannot find|undefined reference|linker|collect2|aarch64-linux-android' build_log.txt         | head -n 50         | sed 's/^/- /'         >> $GITHUB_STEP_SUMMARY
         
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "--- 完整错误日志已作为 Artifact 上传：build_errors ---\n" >> $GITHUB_STEP_SUMMARY
+        echo "--- 完整错误日志已作为 Artifact 上传：build_errors ---
+" >> $GITHUB_STEP_SUMMARY
 
     - name: Upload Error Log Artifact
       if: failure()
