@@ -1,4 +1,4 @@
-name: "Final Cross Build (Pure Spaces)"
+name: "CI/CD: AArch64 Cross Build (Flow Style)"
 
 on:
   push:
@@ -8,28 +8,19 @@ on:
 jobs:
   build_termux:
     name: "Build for Termux"
-    runs-on: "ubuntu-latest"
+    runs-on: ubuntu-latest
     
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: actions/checkout@v4
       
-      - name: "Install Rust and Target"
-        uses: "dtolnay/rust-toolchain@stable"
-        with:
-          targets: "aarch64-linux-android"
+      - name: "Install Rust"
+        uses: dtolnay/rust-toolchain@stable
+        with: {targets: aarch64-linux-android}
           
       - name: "Clean and Build Binary"
-        
-        run: |
-          cross build --release --target aarch64-linux-android
-          
-        # 强制空行隔离 Block Scalar
-        
-        continue-on-error: "false" 
+        # 核心修复：使用单行流式映射，移除 continue-on-error
+        run: cross build --release --target aarch64-linux-android
         
       - name: "Upload Artifact"
-        uses: "actions/upload-artifact@v4"
-        with:
-          name: "cyber_lookup_aarch64"
-          path: "target/aarch64-linux-android/release/cyber_lookup"
-          retention-days: "7"
+        uses: actions/upload-artifact@v4
+        with: {name: cyber_lookup_aarch64, path: target/aarch64-linux-android/release/cyber_lookup, retention-days: 7}
